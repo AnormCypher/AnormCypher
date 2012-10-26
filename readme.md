@@ -233,7 +233,7 @@ match country-[:speaks]->language
 return country.name, language.name;
 ```
 
-Let’s start by parsing all rows as a `List[(String,String)]` (a list of name,language tuples):
+Let's start by parsing all rows as a `List[(String,String)]` (a list of name,language tuples):
 
 ``` Scala
 var p: CypherResultSetParser[List[(String,String)] = {
