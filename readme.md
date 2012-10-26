@@ -58,16 +58,16 @@ Cypher(
 ```
 
 ### Retrieving data using the Stream API
-The first way to access the results of a select query is to use the Stream API.
+The first way to access the results of a return query is to use the Stream API.
 
 When you call `apply()` on any Cypher statement, you will receive a lazy `Stream` of `Row` instances, where each row can be seen as a dictionary:
 
 ``` Scala
-// Create an Cypher query
-val selectCountries = Cypher("start n=node(*) where n.type='Country' return n.code as code, n.name as name;")
+// Create Cypher query
+val allCountries = Cypher("start n=node(*) where n.type='Country' return n.code as code, n.name as name;")
  
 // Transform the resulting Stream[Row] to a List[(String,String)]
-val countries = selectCountries().map(row => 
+val countries = allCountries().map(row => 
   row[String]("code") -> row[String]("name")
 ).toList
 ```
