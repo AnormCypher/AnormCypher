@@ -1,8 +1,8 @@
-package anorm
+package anormcypher
 
 import scala.util.parsing.combinator._
 
-object SqlStatementParser extends JavaTokenParsers {
+object CypherStatementParser extends JavaTokenParsers {
 
   def parse(in: String): (String, List[String]) = {
     val r = parse(instr, in.trim().replace("\r", "").replace("\n", " ")).get

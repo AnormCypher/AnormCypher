@@ -1,15 +1,14 @@
-package anorm
+package anormcypher
 
-import SqlParser.ResultSet
+import CypherParser.CypherResultSet
 
-object SqlParser {
+object CypherParser {
   import MayErr._
   import java.util.Date
 
-  type ResultSet = Stream[Row]
+  type CypherResultSet = Stream[Row]
 
   def scalar[T](implicit transformer: Column[T]): RowParser[T] = RowParser[T] { row =>
-
     (for {
       meta <- row.metaData.ms.headOption.toRight(NoColumnsInReturnedResult)
       value <- row.data.headOption.toRight(NoColumnsInReturnedResult)
@@ -17,9 +16,9 @@ object SqlParser {
     } yield result).fold(e => Error(e), a => Success(a))
   }
 
-  def flatten[T1, T2, R](implicit f: anorm.TupleFlattener[(T1 ~ T2) => R]): ((T1 ~ T2) => R) = f.f
+  def flatten[T1, T2, R](implicit f: anormcypher.TupleFlattener[(T1 ~ T2) => R]): ((T1 ~ T2) => R) = f.f
 
-  def str(columnName: String): RowParser[String] = get[String](columnName)(implicitly[anorm.Column[String]])
+  def str(columnName: String): RowParser[String] = get[String](columnName)(implicitly[anormcypher.Column[String]])
 
   def bool(columnName: String): RowParser[Boolean] = get[Boolean](columnName)(implicitly[Column[Boolean]])
 
@@ -29,7 +28,7 @@ object SqlParser {
 
   def date(columnName: String): RowParser[Date] = get[Date](columnName)(implicitly[Column[Date]])
 
-  def getAliased[T](aliasName: String)(implicit extractor: anorm.Column[T]): RowParser[T] = RowParser { row =>
+  def getAliased[T](aliasName: String)(implicit extractor: anormcypher.Column[T]): RowParser[T] = RowParser { row =>
     import MayErr._
 
     (for {
@@ -40,7 +39,7 @@ object SqlParser {
     } yield result).fold(e => Error(e), a => Success(a))
   }
 
-  def get[T](columnName: String)(implicit extractor: anorm.Column[T]): RowParser[T] = RowParser { row =>
+  def get[T](columnName: String)(implicit extractor: anormcypher.Column[T]): RowParser[T] = RowParser { row =>
     import MayErr._
 
     (for {
@@ -59,18 +58,18 @@ object SqlParser {
 
 case class ~[+A, +B](_1: A, _2: B)
 
-trait SqlResult[+A] {
+trait CypherResult[+A] {
 
   self =>
 
-  def flatMap[B](k: A => SqlResult[B]): SqlResult[B] = self match {
+  def flatMap[B](k: A => CypherResult[B]): CypherResult[B] = self match {
 
     case Success(a) => k(a)
     case e @ Error(_) => e
 
   }
 
-  def map[B](f: A => B): SqlResult[B] = self match {
+  def map[B](f: A => B): CypherResult[B] = self match {
 
     case Success(a) => Success(f(a))
     case e @ Error(_) => e
@@ -79,27 +78,27 @@ trait SqlResult[+A] {
 
 }
 
-case class Success[A](a: A) extends SqlResult[A]
+case class Success[A](a: A) extends CypherResult[A]
 
-case class Error(msg: SqlRequestError) extends SqlResult[Nothing]
+case class Error(msg: CypherRequestError) extends CypherResult[Nothing]
 
 object RowParser {
 
-  def apply[A](f: Row => SqlResult[A]): RowParser[A] = new RowParser[A] {
+  def apply[A](f: Row => CypherResult[A]): RowParser[A] = new RowParser[A] {
 
-    def apply(row: Row): SqlResult[A] = f(row)
+    def apply(row: Row): CypherResult[A] = f(row)
 
   }
 
 }
 
-trait RowParser[+A] extends (Row => SqlResult[A]) {
+trait RowParser[+A] extends (Row => CypherResult[A]) {
 
   parent =>
 
   def map[B](f: A => B): RowParser[B] = RowParser(parent.andThen(_.map(f)))
 
-  def collect[B](otherwise: String)(f: PartialFunction[A, B]): RowParser[B] = RowParser(row => parent(row).flatMap(a => if (f.isDefinedAt(a)) Success(f(a)) else Error(SqlMappingError(otherwise))))
+  def collect[B](otherwise: String)(f: PartialFunction[A, B]): RowParser[B] = RowParser(row => parent(row).flatMap(a => if (f.isDefinedAt(a)) Success(f(a)) else Error(CypherMappingError(otherwise))))
 
   def flatMap[B](k: A => RowParser[B]): RowParser[B] = RowParser(row => parent(row).flatMap(a => k(a)(row)))
 
@@ -128,38 +127,38 @@ trait RowParser[+A] extends (Row => SqlResult[A]) {
 
   def >>[B](f: A => RowParser[B]): RowParser[B] = flatMap(f)
 
-  def * : ResultSetParser[List[A]] = ResultSetParser.list(parent)
+  def * : CypherResultSetParser[List[A]] = CypherResultSetParser.list(parent)
 
-  def + : ResultSetParser[List[A]] = ResultSetParser.nonEmptyList(parent)
+  def + : CypherResultSetParser[List[A]] = CypherResultSetParser.nonEmptyList(parent)
 
-  def single = ResultSetParser.single(parent)
+  def single = CypherResultSetParser.single(parent)
 
-  def singleOpt = ResultSetParser.singleOpt(parent)
+  def singleOpt = CypherResultSetParser.singleOpt(parent)
 
 }
 
-trait ResultSetParser[+A] extends (ResultSet => SqlResult[A]) {
+trait CypherResultSetParser[+A] extends (CypherResultSet => CypherResult[A]) {
   parent =>
 
-  def map[B](f: A => B): ResultSetParser[B] = ResultSetParser(rs => parent(rs).map(f))
+  def map[B](f: A => B): CypherResultSetParser[B] = CypherResultSetParser(rs => parent(rs).map(f))
 
 }
 
-object ResultSetParser {
+object CypherResultSetParser {
 
-  def apply[A](f: ResultSet => SqlResult[A]): ResultSetParser[A] = new ResultSetParser[A] { rows =>
+  def apply[A](f: CypherResultSet => CypherResult[A]): CypherResultSetParser[A] = new CypherResultSetParser[A] { rows =>
 
-    def apply(rows: ResultSet): SqlResult[A] = f(rows)
+    def apply(rows: CypherResultSet): CypherResult[A] = f(rows)
 
   }
 
-  def list[A](p: RowParser[A]): ResultSetParser[List[A]] = {
+  def list[A](p: RowParser[A]): CypherResultSetParser[List[A]] = {
     // Performance note: sequence produces a List in reverse order, since appending to a
     // List is an O(n) operation, and this is done n times, yielding O(n2) just to convert the
     // result set to a List.  Prepending is O(1), so we use prepend, and then reverse the result
     // in the map function below.
     @scala.annotation.tailrec
-    def sequence(results: SqlResult[List[A]], rows: Stream[Row]): SqlResult[List[A]] = {
+    def sequence(results: CypherResult[List[A]], rows: Stream[Row]): CypherResult[List[A]] = {
 
       (results, rows) match {
 
@@ -171,22 +170,22 @@ object ResultSetParser {
 
     }
 
-    ResultSetParser { rows => sequence(Success(List()), rows).map(_.reverse) }
+    CypherResultSetParser { rows => sequence(Success(List()), rows).map(_.reverse) }
   }
 
-  def nonEmptyList[A](p: RowParser[A]): ResultSetParser[List[A]] = ResultSetParser(rows => if (rows.isEmpty) Error(SqlMappingError("Empty Result Set")) else list(p)(rows))
+  def nonEmptyList[A](p: RowParser[A]): CypherResultSetParser[List[A]] = CypherResultSetParser(rows => if (rows.isEmpty) Error(CypherMappingError("Empty Result Set")) else list(p)(rows))
 
-  def single[A](p: RowParser[A]): ResultSetParser[A] = ResultSetParser {
+  def single[A](p: RowParser[A]): CypherResultSetParser[A] = CypherResultSetParser {
     case head #:: Stream.Empty => p(head)
-    case Stream.Empty => Error(SqlMappingError("No rows when expecting a single one"))
-    case _ => Error(SqlMappingError("too many rows when expecting a single one"))
+    case Stream.Empty => Error(CypherMappingError("No rows when expecting a single one"))
+    case _ => Error(CypherMappingError("too many rows when expecting a single one"))
 
   }
 
-  def singleOpt[A](p: RowParser[A]): ResultSetParser[Option[A]] = ResultSetParser {
+  def singleOpt[A](p: RowParser[A]): CypherResultSetParser[Option[A]] = CypherResultSetParser {
     case head #:: Stream.Empty => p.map(Some(_))(head)
     case Stream.Empty => Success(None)
-    case _ => Error(SqlMappingError("too many rows when expecting a single one"))
+    case _ => Error(CypherMappingError("too many rows when expecting a single one"))
   }
 
 }

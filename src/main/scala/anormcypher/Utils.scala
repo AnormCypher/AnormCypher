@@ -1,4 +1,4 @@
-package anorm
+package anormcypher
 
 case class MayErr[+E, +A](e: Either[E, A]) {
 

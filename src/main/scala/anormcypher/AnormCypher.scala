@@ -1,19 +1,19 @@
-package anorm
+package anormcypher
 
 import MayErr._
 import java.util.Date
 import collection.TraversableOnce
 
-abstract class SqlRequestError
-case class ColumnNotFound(columnName: String, possibilities: List[String]) extends SqlRequestError {
+abstract class CypherRequestError
+case class ColumnNotFound(columnName: String, possibilities: List[String]) extends CypherRequestError {
   override def toString = columnName + " not found, available columns : " + possibilities.map { p => p.dropWhile(c => c == '.') }
     .mkString(", ")
 }
 
-case class TypeDoesNotMatch(message: String) extends SqlRequestError
-case class UnexpectedNullableFound(on: String) extends SqlRequestError
-case object NoColumnsInReturnedResult extends SqlRequestError
-case class SqlMappingError(msg: String) extends SqlRequestError
+case class TypeDoesNotMatch(message: String) extends CypherRequestError
+case class UnexpectedNullableFound(on: String) extends CypherRequestError
+case object NoColumnsInReturnedResult extends CypherRequestError
+case class CypherMappingError(msg: String) extends CypherRequestError
 
 abstract class Pk[+ID] {
 
@@ -39,17 +39,17 @@ case object NotAssigned extends Pk[Nothing] {
   override def toString() = "NotAssigned"
 }
 
-trait Column[A] extends ((Any, MetaDataItem) => MayErr[SqlRequestError, A])
+trait Column[A] extends ((Any, MetaDataItem) => MayErr[CypherRequestError, A])
 
 object Column {
 
-  def apply[A](transformer: ((Any, MetaDataItem) => MayErr[SqlRequestError, A])): Column[A] = new Column[A] {
+  def apply[A](transformer: ((Any, MetaDataItem) => MayErr[CypherRequestError, A])): Column[A] = new Column[A] {
 
-    def apply(value: Any, meta: MetaDataItem): MayErr[SqlRequestError, A] = transformer(value, meta)
+    def apply(value: Any, meta: MetaDataItem): MayErr[CypherRequestError, A] = transformer(value, meta)
 
   }
 
-  def nonNull[A](transformer: ((Any, MetaDataItem) => MayErr[SqlRequestError, A])): Column[A] = Column[A] {
+  def nonNull[A](transformer: ((Any, MetaDataItem) => MayErr[CypherRequestError, A])): Column[A] = Column[A] {
     case (value, meta @ MetaDataItem(qualified, _, _)) =>
       if (value != null) transformer(value, meta) else Left(UnexpectedNullableFound(qualified.toString))
   }
@@ -59,7 +59,6 @@ object Column {
       val MetaDataItem(qualified, nullable, clazz) = meta
       value match {
         case string: String => Right(string)
-        case clob: java.sql.Clob => Right(clob.getSubString(1, clob.length.asInstanceOf[Int]))
         case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to String for column " + qualified))
       }
     }
@@ -149,7 +148,7 @@ object Column {
   }
 
   implicit def rowToOption[T](implicit transformer: Column[T]): Column[Option[T]] = Column { (value, meta) =>
-    if (value != null) transformer(value, meta).map(Some(_)) else (Right(None): MayErr[SqlRequestError, Option[T]])
+    if (value != null) transformer(value, meta).map(Some(_)) else (Right(None): MayErr[CypherRequestError, Option[T]])
   }
 
 }
@@ -246,13 +245,13 @@ trait Row {
 
   import scala.reflect.Manifest
 
-  protected[anorm] val data: List[Any]
+  protected[anormcypher] val data: List[Any]
 
   lazy val asList = data.zip(metaData.ms.map(_.nullable)).map(i => if (i._2) Option(i._1) else i._1)
 
   lazy val asMap: scala.collection.Map[String, Any] = metaData.ms.map(_.column.qualified).zip(asList).toMap
 
-  def get[A](a: String)(implicit c: Column[A]): MayErr[SqlRequestError, A] = SqlParser.get(a)(c)(this) match {
+  def get[A](a: String)(implicit c: Column[A]): MayErr[CypherRequestError, A] = CypherParser.get(a)(c)(this) match {
     case Success(a) => Right(a)
     case Error(e) => Left(e)
   }
@@ -266,7 +265,7 @@ trait Row {
 
   private lazy val ColumnsDictionary: Map[String, Any] = metaData.ms.map(_.column.qualified.toUpperCase()).zip(data).toMap
   private lazy val AliasesDictionary: Map[String, Any] = metaData.ms.flatMap(_.column.alias.map(_.toUpperCase())).zip(data).toMap
-  private[anorm] def get1(a: String): MayErr[SqlRequestError, Any] = {
+  private[anormcypher] def get1(a: String): MayErr[CypherRequestError, Any] = {
     for (
       meta <- metaData.get(a).toRight(ColumnNotFound(a, metaData.availableColumns));
       (column, nullable, clazz) = meta;
@@ -274,7 +273,7 @@ trait Row {
     ) yield result
   }
 
-  private[anorm] def getAliased(a: String): MayErr[SqlRequestError, Any] = {
+  private[anormcypher] def getAliased(a: String): MayErr[CypherRequestError, Any] = {
     for (
       meta <- metaData.getAliased(a).toRight(ColumnNotFound(a, metaData.availableColumns));
       (column, nullable, clazz) = meta;
@@ -288,7 +287,7 @@ trait Row {
 
 case class MockRow(data: List[Any], metaData: MetaData) extends Row
 
-case class SqlRow(metaData: MetaData, data: List[Any]) extends Row {
+case class CypherRow(metaData: MetaData, data: List[Any]) extends Row {
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
 
@@ -317,214 +316,96 @@ object Useful {
 
 }
 
-trait ToStatement[A] { def set(s: java.sql.PreparedStatement, index: Int, aValue: A): Unit }
-object ToStatement {
+import CypherParser._
+case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: RowParser[T]) extends Cypher {
 
-  implicit def anyParameter[T] = new ToStatement[T] {
-    private def setAny(index: Int, value: Any, stmt: java.sql.PreparedStatement): java.sql.PreparedStatement = {
-      value match {
-        case Some(bd: java.math.BigDecimal) => stmt.setBigDecimal(index, bd)
-        case Some(o) => stmt.setObject(index, o)
-        case None => stmt.setObject(index, null)
-        case bd: java.math.BigDecimal => stmt.setBigDecimal(index, bd)
-        case date: java.util.Date => stmt.setTimestamp(index, new java.sql.Timestamp(date.getTime()))
-        case o => stmt.setObject(index, o)
-      }
-      stmt
-    }
-
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: T): Unit = setAny(index, aValue, s)
-  }
-
-  implicit val dateToStatement = new ToStatement[java.util.Date] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: java.util.Date): Unit = s.setTimestamp(index, new java.sql.Timestamp(aValue.getTime()))
-
-  }
-
-  implicit def optionToStatement[A](implicit ts: ToStatement[A]): ToStatement[Option[A]] = new ToStatement[Option[A]] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: Option[A]): Unit = {
-      aValue match {
-        case Some(o) => ts.set(s, index, o)
-        case None => s.setObject(index, null)
-      }
-    }
-  }
-
-  implicit def pkToStatement[A](implicit ts: ToStatement[A]): ToStatement[Pk[A]] = new ToStatement[Pk[A]] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: Pk[A]): Unit =
-      aValue match {
-        case Id(id) => ts.set(s, index, id)
-        case NotAssigned => s.setObject(index, null)
-      }
-  }
-
-}
-
-import SqlParser._
-case class ParameterValue[A](aValue: A, statementSetter: ToStatement[A]) {
-  def set(s: java.sql.PreparedStatement, index: Int) = statementSetter.set(s, index, aValue)
-}
-
-case class SimpleSql[T](sql: SqlQuery, params: Seq[(String, ParameterValue[_])], defaultParser: RowParser[T]) extends Sql {
-
-  def on(args: (Any, ParameterValue[_])*): SimpleSql[T] = this.copy(params = (this.params) ++ args.map {
+  def on(args: (Any, ParameterValue[_])*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
     case (s: Symbol, v) => (s.name, v)
     case (k, v) => (k.toString, v)
   })
 
-  def onParams(args: ParameterValue[_]*): SimpleSql[T] = this.copy(params = (this.params) ++ sql.argsInitialOrder.zip(args))
+  def onParams(args: ParameterValue[_]*): SimpleCypher[T] = this.copy(params = (this.params) ++ cypher.argsInitialOrder.zip(args))
 
-  def list()(implicit connection: java.sql.Connection): Seq[T] = as(defaultParser*)
+  def list()(implicit connection: NeoRESTConnection): Seq[T] = as(defaultParser*)
 
-  def single()(implicit connection: java.sql.Connection): T = as(ResultSetParser.single(defaultParser))
+  def single()(implicit connection: NeoRESTConnection): T = as(CypherResultSetParser.single(defaultParser))
 
-  def singleOpt()(implicit connection: java.sql.Connection): Option[T] = as(ResultSetParser.singleOpt(defaultParser))
+  def singleOpt()(implicit connection: NeoRESTConnection): Option[T] = as(CypherResultSetParser.singleOpt(defaultParser))
 
-  //def first()(implicit connection: java.sql.Connection): Option[T] = parse((guard(acceptMatch("not at end", { case Right(_) => Unit })) ~> commit(defaultParser))?)
-
-  def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false) = {
-    val s = if (getGeneratedKeys) connection.prepareStatement(sql.query, java.sql.Statement.RETURN_GENERATED_KEYS)
-    else connection.prepareStatement(sql.query)
-
-    val argsMap = Map(params: _*)
-    sql.argsInitialOrder.map(argsMap)
-      .zipWithIndex
-      .map(_.swap)
-      .foldLeft(s)((s, e) => { e._2.set(s, e._1 + 1); s })
-  }
-
-  def using[U](p: RowParser[U]): SimpleSql[U] = SimpleSql(sql, params, p)
+  def using[U](p: RowParser[U]): SimpleCypher[U] = SimpleCypher(cypher, params, p)
 
 }
 
-case class BatchSql(sql: SqlQuery, params: Seq[Seq[(String, ParameterValue[_])]]) {
+trait Cypher {
 
-  def addBatch(args: (String, ParameterValue[_])*): BatchSql = this.copy(params = (this.params) :+ args)
-  def addBatchList(paramsMapList: TraversableOnce[Seq[(String, ParameterValue[_])]]): BatchSql = this.copy(params = (this.params) ++ paramsMapList)
-
-  def addBatchParams(args: ParameterValue[_]*): BatchSql = this.copy(params = (this.params) :+ sql.argsInitialOrder.zip(args))
-  def addBatchParamsList(paramsSeqList: TraversableOnce[Seq[ParameterValue[_]]]): BatchSql = this.copy(params = (this.params) ++ paramsSeqList.map(paramsSeq => sql.argsInitialOrder.zip(paramsSeq)))
-
-  def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false) = {
-    val statement = if (getGeneratedKeys) connection.prepareStatement(sql.query, java.sql.Statement.RETURN_GENERATED_KEYS)
-    else connection.prepareStatement(sql.query)
-    params.foldLeft(statement)((s, ps) => {
-      val argsMap = Map(ps: _*)
-      val result = sql.argsInitialOrder
-        .map(argsMap)
-        .zipWithIndex
-        .map(_.swap)
-        .foldLeft(s)((s, e) => { e._2.set(s, e._1 + 1); s })
-      s.addBatch()
-      result
-    })
-  }
-
-  def filledStatement(implicit connection: java.sql.Connection) = getFilledStatement(connection)
-
-  def execute()(implicit connection: java.sql.Connection): Array[Int] = getFilledStatement(connection).executeBatch()
-
-}
-
-trait Sql {
-
-  import SqlParser._
+  import CypherParser._
   import scala.util.control.Exception._
 
-  def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false): java.sql.PreparedStatement
+  def apply()(implicit connection: NeoRESTConnection) = Cypher.resultSetToStream(resultSet())
 
-  def filledStatement(implicit connection: java.sql.Connection) = getFilledStatement(connection)
+  def resultSet()(implicit connection: NeoRESTConnection) = (getFilledStatement(connection).executeQuery())
 
-  def apply()(implicit connection: java.sql.Connection) = Sql.resultSetToStream(resultSet())
+  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
-  def resultSet()(implicit connection: java.sql.Connection) = (getFilledStatement(connection).executeQuery())
+  def list[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
 
-  import SqlParser._
+  def single[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
 
-  def as[T](parser: ResultSetParser[T])(implicit connection: java.sql.Connection): T = Sql.as[T](parser, resultSet())
+  def singleOpt[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-  def list[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): Seq[A] = as(rowParser *)
+  def parse[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.parse[T](parser, resultSet())
 
-  def single[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): A = as(ResultSetParser.single(rowParser))
+  def execute()(implicit connection: NeoRESTConnection): Boolean = getFilledStatement(connection).execute()
 
-  def singleOpt[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): Option[A] = as(ResultSetParser.singleOpt(rowParser))
-
-  def parse[T](parser: ResultSetParser[T])(implicit connection: java.sql.Connection): T = Sql.parse[T](parser, resultSet())
-
-  def execute()(implicit connection: java.sql.Connection): Boolean = getFilledStatement(connection).execute()
-
-  def execute1(getGeneratedKeys: Boolean = false)(implicit connection: java.sql.Connection): (java.sql.PreparedStatement, Int) = {
-    val statement = getFilledStatement(connection, getGeneratedKeys)
-    (statement, { statement.executeUpdate() })
-  }
-
-  def executeUpdate()(implicit connection: java.sql.Connection): Int =
+  def executeUpdate()(implicit connection: NeoRESTConnection): Int =
     getFilledStatement(connection).executeUpdate()
-
-  def executeInsert[A](generatedKeysParser: ResultSetParser[A] = scalar[Long].singleOpt)(implicit connection: java.sql.Connection): A = {
-    Sql.as(generatedKeysParser, execute1(getGeneratedKeys = true)._1.getGeneratedKeys)
-  }
 
 }
 
-case class SqlQuery(query: String, argsInitialOrder: List[String] = List.empty) extends Sql {
+case class CypherQuery(query: String, argsInitialOrder: List[String] = List.empty) extends Cypher {
 
-  def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false): java.sql.PreparedStatement =
+  def getFilledStatement(connection: NeoRESTConnection, getGeneratedKeys: Boolean = false): CypherStatement =
     asSimple.getFilledStatement(connection, getGeneratedKeys)
 
   private def defaultParser: RowParser[Row] = RowParser(row => Success(row))
 
-  def asSimple: SimpleSql[Row] = SimpleSql(this, Nil, defaultParser)
+  def asSimple: SimpleCypher[Row] = SimpleCypher(this, Nil, defaultParser)
 
-  def asSimple[T](parser: RowParser[T] = defaultParser): SimpleSql[T] = SimpleSql(this, Nil, parser)
-
-  def asBatch[T]: BatchSql = BatchSql(this, Nil)
+  def asSimple[T](parser: RowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
 }
 
-object Sql {
+object Cypher {
 
-  def sql(inSql: String): SqlQuery = {
-    val (sql, paramsNames) = SqlStatementParser.parse(inSql)
-    SqlQuery(sql, paramsNames)
+  def cypher(inCypher: String): CypherQuery = {
+    val (cypher, paramsNames) = CypherStatementParser.parse(inCypher)
+    CypherQuery(cypher, paramsNames)
   }
 
-  import java.sql._
-  import java.sql.ResultSetMetaData._
-
-  def metaData(rs: java.sql.ResultSet) = {
+  def metaData(rs: CypherResultSet) = {
     val meta = rs.getMetaData()
     val nbColumns = meta.getColumnCount()
     MetaData(List.range(1, nbColumns + 1).map(i =>
       MetaDataItem(column = ColumnName({
-
-        // HACK FOR POSTGRES
-        if (meta.getClass.getName.startsWith("org.postgresql.")) {
-          meta.asInstanceOf[{ def getBaseTableName(i: Int): String }].getBaseTableName(i)
-        } else {
-          meta.getTableName(i)
-        }
-
+        meta.getTableName(i)
       } + "." + meta.getColumnName(i), alias = Option(meta.getColumnLabel(i))),
         nullable = meta.isNullable(i) == columnNullable,
         clazz = meta.getColumnClassName(i))))
   }
 
-  def resultSetToStream(rs: java.sql.ResultSet): Stream[SqlRow] = {
+  def resultSetToStream(rs: CypherResultSet): Stream[CypherRow] = {
     val rsMetaData = metaData(rs)
     val columns = List.range(1, rsMetaData.columnCount + 1)
-    def data(rs: java.sql.ResultSet) = columns.map(nb => rs.getObject(nb))
-    Useful.unfold(rs)(rs => if (!rs.next()) { rs.getStatement.close(); None } else Some((new SqlRow(rsMetaData, data(rs)), rs)))
+    def data(rs: CypherResultSet) = columns.map(nb => rs.getObject(nb))
+    Useful.unfold(rs)(rs => if (!rs.next()) { rs.getStatement.close(); None } else Some((new CypherRow(rsMetaData, data(rs)), rs)))
   }
 
-  import SqlParser._
-
-  def as[T](parser: ResultSetParser[T], rs: java.sql.ResultSet): T =
+  def as[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =
     parser(resultSetToStream(rs)) match {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
     }
 
-  def parse[T](parser: ResultSetParser[T], rs: java.sql.ResultSet): T =
+  def parse[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =
     parser(resultSetToStream(rs)) match {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
