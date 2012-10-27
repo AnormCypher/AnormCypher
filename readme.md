@@ -332,6 +332,15 @@ $ spokenLanguages("FRA")
 )
 ```
 
+## Contributors
+* Wes Freeman: @wfreeman on github
+* Jason Jackson: @jasonjackson on github
+
+## Thanks
+* The Play Framework team for providing the Anorm library, the basis for this library.
+* Coda Hale, for the Jerkson library
+* Databinder.net, for the Dispatch library
+* Neo Technologies for Neo4j!
 
 ## License LGPL
 
