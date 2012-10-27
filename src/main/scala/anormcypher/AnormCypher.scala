@@ -319,7 +319,7 @@ object Useful {
 import CypherParser._
 
 // Jason - reading up on case classes and figuring what role ParameterValue plays
-
+/*
 case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: CypherRowParser[T]) extends Cypher {
 
   def on(args: (String, Any)*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
@@ -338,44 +338,45 @@ case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterVa
   def using[U](p: CypherRowParser[U]): SimpleCypher[U] = SimpleCypher(cypher, params, p)
 
 }
-
+*/
 trait Cypher {
 
   import CypherParser._
   import scala.util.control.Exception._
 
-  def apply()(implicit connection: NeoRESTConnection) = Cypher.resultSetToStream(resultSet())
+//  def apply()(implicit connection: NeoRESTConnection) = Cypher.resultSetToStream(resultSet())
 
-  def resultSet()(implicit connection: NeoRESTConnection) = (getFilledStatement(connection).executeQuery())
+//  def resultSet()(implicit connection: NeoRESTConnection) = (getFilledStatement(connection).executeQuery())
 
-  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
+//  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
-  def list[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
+//  def list[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
 
-  def single[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
+//  def single[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
 
-  def singleOpt[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
+//  def singleOpt[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-  def parse[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.parse[T](parser, resultSet())
+//  def parse[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.parse[T](parser, resultSet())
 
-  def execute()(implicit connection: NeoRESTConnection): Boolean = getFilledStatement(connection).execute()
+//  def execute()(implicit connection: NeoRESTConnection): Boolean = getFilledStatement(connection).execute()
 
-  def executeUpdate()(implicit connection: NeoRESTConnection): Int =
-    getFilledStatement(connection).executeUpdate()
+//  def executeUpdate()(implicit connection: NeoRESTConnection): Int =
+//    getFilledStatement(connection).executeUpdate()
 
 }
 
 case class CypherQuery(query: String, argsInitialOrder: List[String] = List.empty) extends Cypher {
 
-  def getFilledStatement(connection: NeoRESTConnection, getGeneratedKeys: Boolean = false): CypherStatement =
-    asSimple.getFilledStatement(connection, getGeneratedKeys)
+//  def getFilledStatement(connection: NeoRESTConnection, getGeneratedKeys: Boolean = false): CypherStatement =
+//    asSimple.getFilledStatement(connection, getGeneratedKeys)
 
-  private def defaultParser: CypherRowParser[CypherResultRow] = CypherRowParser(row => Success(row))
+//  private def defaultParser: CypherRowParser[CypherResultRow] = CypherRowParser(row => Success(row))
 
-  def asSimple: SimpleCypher[CypherResutRow] = SimpleCypher(this, Nil, defaultParser)
+//  def asSimple: SimpleCypher[CypherResutRow] = SimpleCypher(this, Nil, defaultParser)
 
-  def asSimple[T](parser: CypherRowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
+//  def asSimple[T](parser: CypherRowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
 }
+
 
 object Cypher {
 
@@ -384,7 +385,7 @@ object Cypher {
     CypherQuery(cypher, paramsNames)
   }
 
-  def metaData(rs: CypherResultSet) = {
+/*  def metaData(rs: CypherResultSet) = {
     val meta = rs.getMetaData()
     val nbColumns = meta.getColumnCount()
     MetaData(List.range(1, nbColumns + 1).map(i =>
@@ -394,12 +395,13 @@ object Cypher {
         nullable = meta.isNullable(i) == columnNullable,
         clazz = meta.getColumnClassName(i))))
   }
+  */
 
   def resultSetToStream(rs: CypherResultSet): Stream[CypherResultRow] = {
-    val rsMetaData = metaData(rs)
-    val columns = List.range(1, rsMetaData.columnCount + 1)
-    def data(rs: CypherResultSet) = columns.map(nb => rs.getObject(nb))
-    Useful.unfold(rs)(rs => if (!rs.next()) { rs.getStatement.close(); None } else Some((new CypherResultRow(rsMetaData, data(rs)), rs)))
+    //val rsMetaData = metaData(rs)
+    //val columns = List.range(1, rsMetaData.columnCount + 1)
+    //def data(rs: CypherResultSet) = columns.map(nb => rs.getObject(nb))
+    null
   }
 
   def as[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =

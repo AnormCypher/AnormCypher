@@ -3,7 +3,7 @@ package anormcypher
 import dispatch._
 import com.codahale.jerkson.Json._
 
-object NeoRESTConnection {
+class NeoRESTConnection {
   // TODO: read from properties
   val baseURL = "http://localhost:7474/db/data/"
 
@@ -12,6 +12,7 @@ object NeoRESTConnection {
     cypherRequest.addParameter("query", stmt.query)
     cypherRequest.addParameter("params", generate(stmt.params))
     val strResult = Http(cypherRequest OK as.String)
+    println(cypherRequest.toString)
     parse[CypherRESTResult](strResult())
   }
 }
