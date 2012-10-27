@@ -195,8 +195,8 @@ object TupleFlattener extends PriorityNine {
   implicit def flattenerTo11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9 ~ t10 ~ t11) => (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11) }
 }
 
-object Row {
-  def unapplySeq(row: Row): Option[List[Any]] = Some(row.asList)
+object CypherRow {
+  def unapplySeq(row: CypherRow): Option[List[Any]] = Some(row.asList)
 }
 
 case class MetaDataItem(column: ColumnName, nullable: Boolean, clazz: String)
@@ -239,7 +239,7 @@ case class MetaData(ms: List[MetaDataItem]) {
 
 }
 
-trait Row {
+trait CypherRow {
 
   val metaData: MetaData
 
@@ -285,9 +285,9 @@ trait Row {
 
 }
 
-case class MockRow(data: List[Any], metaData: MetaData) extends Row
+case class MockRow(data: List[Any], metaData: MetaData) extends CypherRow
 
-case class CypherRow(metaData: MetaData, data: List[Any]) extends Row {
+case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRow {
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
 
@@ -317,9 +317,9 @@ object Useful {
 }
 
 import CypherParser._
-case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: RowParser[T]) extends Cypher {
+case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: CypherRowParser[T]) extends Cypher {
 
-  def on(args: (Any, ParameterValue[_])*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
+  def on(args: (String, Any)*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
     case (s: Symbol, v) => (s.name, v)
     case (k, v) => (k.toString, v)
   })
@@ -332,7 +332,7 @@ case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterVa
 
   def singleOpt()(implicit connection: NeoRESTConnection): Option[T] = as(CypherResultSetParser.singleOpt(defaultParser))
 
-  def using[U](p: RowParser[U]): SimpleCypher[U] = SimpleCypher(cypher, params, p)
+  def using[U](p: CypherRowParser[U]): SimpleCypher[U] = SimpleCypher(cypher, params, p)
 
 }
 
@@ -347,11 +347,11 @@ trait Cypher {
 
   def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
-  def list[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
+  def list[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
 
-  def single[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
+  def single[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
 
-  def singleOpt[A](rowParser: RowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
+  def singleOpt[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
   def parse[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.parse[T](parser, resultSet())
 
@@ -367,11 +367,11 @@ case class CypherQuery(query: String, argsInitialOrder: List[String] = List.empt
   def getFilledStatement(connection: NeoRESTConnection, getGeneratedKeys: Boolean = false): CypherStatement =
     asSimple.getFilledStatement(connection, getGeneratedKeys)
 
-  private def defaultParser: RowParser[Row] = RowParser(row => Success(row))
+  private def defaultParser: CypherRowParser[CypherResultRow] = CypherRowParser(row => Success(row))
 
-  def asSimple: SimpleCypher[Row] = SimpleCypher(this, Nil, defaultParser)
+  def asSimple: SimpleCypher[CypherResutRow] = SimpleCypher(this, Nil, defaultParser)
 
-  def asSimple[T](parser: RowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
+  def asSimple[T](parser: CypherRowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
 }
 
 object Cypher {
@@ -392,11 +392,11 @@ object Cypher {
         clazz = meta.getColumnClassName(i))))
   }
 
-  def resultSetToStream(rs: CypherResultSet): Stream[CypherRow] = {
+  def resultSetToStream(rs: CypherResultSet): Stream[CypherResultRow] = {
     val rsMetaData = metaData(rs)
     val columns = List.range(1, rsMetaData.columnCount + 1)
     def data(rs: CypherResultSet) = columns.map(nb => rs.getObject(nb))
-    Useful.unfold(rs)(rs => if (!rs.next()) { rs.getStatement.close(); None } else Some((new CypherRow(rsMetaData, data(rs)), rs)))
+    Useful.unfold(rs)(rs => if (!rs.next()) { rs.getStatement.close(); None } else Some((new CypherResultRow(rsMetaData, data(rs)), rs)))
   }
 
   def as[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =
