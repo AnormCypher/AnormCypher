@@ -1,3 +1,6 @@
+## Warning
+This library is not usable yet. We'll update this readme when it's ready for some use.
+
 ## AnormCypher
 This is a Neo4j library purely for REST, using the Jerkson JSON parser and the Dispatch REST client library.
 
