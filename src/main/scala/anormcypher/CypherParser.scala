@@ -6,7 +6,7 @@ object CypherParser {
   import MayErr._
   import java.util.Date
 
-  type CypherResultSet = Stream[Row]
+  type CypherResultSet = Stream[CypherRow]
 
   def scalar[T](implicit transformer: Column[T]): RowParser[T] = RowParser[T] { row =>
     (for {
@@ -52,7 +52,7 @@ object CypherParser {
 
   def contains[TT: Column, T <: TT](columnName: String, t: T): RowParser[Unit] =
     get[TT](columnName)(implicitly[Column[TT]])
-      .collect("Row doesn't contain a column: " + columnName + " with value " + t) { case a if a == t => Unit }
+      .collect("CypherRow doesn't contain a column: " + columnName + " with value " + t) { case a if a == t => Unit }
 
 }
 
@@ -84,15 +84,15 @@ case class Error(msg: CypherRequestError) extends CypherResult[Nothing]
 
 object RowParser {
 
-  def apply[A](f: Row => CypherResult[A]): RowParser[A] = new RowParser[A] {
+  def apply[A](f: CypherRow => CypherResult[A]): RowParser[A] = new RowParser[A] {
 
-    def apply(row: Row): CypherResult[A] = f(row)
+    def apply(row: CypherRow): CypherResult[A] = f(row)
 
   }
 
 }
 
-trait RowParser[+A] extends (Row => CypherResult[A]) {
+trait RowParser[+A] extends (CypherRow => CypherResult[A]) {
 
   parent =>
 
@@ -158,7 +158,7 @@ object CypherResultSetParser {
     // result set to a List.  Prepending is O(1), so we use prepend, and then reverse the result
     // in the map function below.
     @scala.annotation.tailrec
-    def sequence(results: CypherResult[List[A]], rows: Stream[Row]): CypherResult[List[A]] = {
+    def sequence(results: CypherResult[List[A]], rows: Stream[CypherRow]): CypherResult[List[A]] = {
 
       (results, rows) match {
 

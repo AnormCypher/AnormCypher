@@ -317,6 +317,9 @@ object Useful {
 }
 
 import CypherParser._
+
+// Jason - reading up on case classes and figuring what role ParameterValue plays
+
 case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: CypherRowParser[T]) extends Cypher {
 
   def on(args: (String, Any)*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
