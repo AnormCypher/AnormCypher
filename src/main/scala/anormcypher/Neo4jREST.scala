@@ -3,20 +3,20 @@ package anormcypher
 import dispatch._
 import com.codahale.jerkson.Json._
 
-class NeoRESTConnection {
+object NeoRESTConnection {
   // TODO: read from properties
   val baseURL = "http://localhost:7474/db/data/"
 
   def sendQuery(stmt: CypherStatement): CypherRESTResult = {
     val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
-    cypherRequest.addParameter("query", stmt.query)
-    cypherRequest.addParameter("params", generate(stmt.params))
+    cypherRequest.setBody(generate(stmt))
     val strResult = Http(cypherRequest OK as.String)
-    println(cypherRequest.toString)
-    parse[CypherRESTResult](strResult())
+    val restResult = strResult()
+    println("RESTResult: " + restResult)
+    parse[CypherRESTResult](restResult)
   }
 }
 
-case class CypherStatement(query:String, params:Map[String, Any] = null)
+case class CypherStatement(query:String, params:Map[String, Any] = Map())
 
-case class CypherRESTResult(columns: Vector[String], data: Seq[Map[String, Any]])
+case class CypherRESTResult(columns: Vector[String], data: Seq[Seq[Any]])
