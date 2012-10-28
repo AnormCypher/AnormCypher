@@ -10,6 +10,8 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
 Following this library will be the creation of play2-AnormCypher, the plugin for Play2.
 
+[![Build Status](https://travis-ci.org/[YOUR_GITHUB_USERNAME]/[YOUR_PROJECT_NAME].png)](https://travis-ci.org/[YOUR_GITHUB_USERNAME]/[YOUR_PROJECT_NAME])
+
 ## Usage
 You'll probably notice that this usage is very close to Play's Anorm. That is the idea!
 
