@@ -15,7 +15,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
   }
 
   it should "placeholder" in {
-    val results = NeoRESTConnection.sendQuery(cypherStatement)
-    println(results(1)("n").asInstanceOf[LinkedHashMap[String,Any]].asScala("data"))
+    //val results = NeoRESTConnection.sendQuery(cypherStatement)
+    //println(results(1)("n").asInstanceOf[LinkedHashMap[String,Any]].asScala("data"))
   }
 }
