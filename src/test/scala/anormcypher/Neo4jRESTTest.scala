@@ -4,6 +4,7 @@ import org.scalatest._
 import org.scalatest.matchers._
 import anormcypher._
 import anormcypher.Neo4jREST._
+import scala.collection.JavaConverters._
 
 class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
   //TODO a good way to mock the REST interface would be cool; ideas?
@@ -30,17 +31,8 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
     results.size should equal (1)
     asNode(results(0)("n")).props("anormcyphername") should equal ("n")
     asNode(results(0)("n")).props("i") should equal (1)
-    //TODO make this stuff use scala classes :(
-    val onetwothree = new java.util.ArrayList[Int]
-    onetwothree.add(1)
-    onetwothree.add(2)
-    onetwothree.add(3)
-    val abc = new java.util.ArrayList[String]
-    abc.add("a")
-    abc.add("b")
-    abc.add("c")
-    asNode(results(0)("n")).props("arr") should equal (onetwothree)
-    asNode(results(0)("n")).props("arrc") should equal (abc)
+    asNode(results(0)("n")).props("arr").asInstanceOf[java.util.ArrayList[Int]].asScala should equal (Vector(1,2,3))
+    asNode(results(0)("n")).props("arrc").asInstanceOf[java.util.ArrayList[String]].asScala should equal (Vector("a","b","c"))
   }
 
   it should "be able to retrieve collections of nodes" in {
