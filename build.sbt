@@ -4,6 +4,8 @@ version := "0.1"
  
 scalaVersion := "2.9.2"
 
+//scalacOptions ++= Seq("-unchecked", "-deprecation")
+
 resolvers += "codahale" at "http://repo.codahale.com/"
  
 libraryDependencies ++= Seq(
