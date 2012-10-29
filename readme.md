@@ -15,12 +15,19 @@ Following this library will be the creation of play2-AnormCypher, the plugin for
 ## Usage
 You'll probably notice that this usage is very close to Play's Anorm. That is the idea!
 
+### Configuring a server
+The default is localhost, but you can specify a special server when your app is starting via the `setHost` or `setURL` options. Authentication support will come soon.
+``` Scala
+import anormcypher._
+
+NeoREST.setHost("localhost", 7474, "/db/data/")
+```
+
 ### Executing Cypher Queries
 
 To start you need to learn how to execute Cypher queries.
 
-First, `import anormcypher._`, and then simply use the Cypher object to create queries. You need a `Connection` to run a query, and you can retrieve one from the `anormcypher.NeoDB` helper
-
+First, `import anormcypher._`, and then simply use the Cypher object to create queries. 
 
 ``` Scala
 import anormcypher._ 
