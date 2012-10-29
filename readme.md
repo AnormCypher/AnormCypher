@@ -20,7 +20,7 @@ The default is localhost, but you can specify a special server when your app is 
 ``` Scala
 import anormcypher._
 
-NeoREST.setHost("localhost", 7474, "/db/data/")
+Neo4jREST.setHost("localhost", 7474, "/db/data/")
 ```
 
 ### Executing Cypher Queries
