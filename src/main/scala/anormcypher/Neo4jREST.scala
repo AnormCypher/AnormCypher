@@ -2,19 +2,28 @@ package anormcypher
 
 import dispatch._
 import com.codahale.jerkson.Json._
-import java.util.LinkedHashMap
 import scala.collection.JavaConverters._
+import java.util.LinkedHashMap
 
-object NeoRESTConnection {
-  // TODO: read from properties
-  val baseURL = "http://localhost:7474/db/data/"
+// maybe this does need to be a class
+object Neo4jREST {
+  // TODO support authentication
+  var baseURL = "http://localhost:7474/db/data/"
+
+  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/") = {
+    baseURL = "http://" + host + ":" + port + path 
+  }
+
+  def setURL(url:String) = {
+    baseURL = url
+  }
 
   def sendQuery(stmt: CypherStatement): Seq[Map[String, Any]] = {
     val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
     cypherRequest.setBody(generate(stmt))
     val strResult = Http(cypherRequest OK as.String)
-    // TODO: make not blow for exception cases
     val cypherRESTResult = parse[CypherRESTResult](strResult())
+    // TODO: make not blow up for exception cases
     // build a sequence of Maps for the results
     cypherRESTResult.data.map { 
       d => d.zipWithIndex.map { 
@@ -23,17 +32,15 @@ object NeoRESTConnection {
     }
   }
 
-  // TODO: convert this stuff to use json4s, or something that
-  // doesn't force the use of Java->Scala conversions.
-  // didn't realize Jerkson did that.
-  def asNeoNode(n:Any):NeoNode = {
+  // TODO clean these up...
+  def asNode(n:Any):NeoNode = {
     val node = n.asInstanceOf[LinkedHashMap[String, Any]].asScala
     val self = node("self").asInstanceOf[String]
     val id = self.substring(self.lastIndexOf("/") + 1).toLong
     NeoNode(id, node("data").asInstanceOf[LinkedHashMap[String, Any]].asScala.toMap)
   }
 
-  def asNeoRelationship(r:Any):NeoRelationship = {
+  def asRelationship(r:Any):NeoRelationship = {
     val rel = r.asInstanceOf[LinkedHashMap[String, Any]].asScala
     val self = rel("self").asInstanceOf[String]
     val id = self.substring(self.lastIndexOf("/") + 1).toLong
