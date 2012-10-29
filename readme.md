@@ -25,9 +25,7 @@ First, `import anormcypher._`, and then simply use the Cypher object to create q
 ``` Scala
 import anormcypher._ 
 
-NeoDB.withConnection { implicit c =>
-  val result: Boolean = Cypher("START n=node(0) RETURN n").execute()    
-} 
+val result: Boolean = Cypher("START n=node(0) RETURN n").execute()    
 ```
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
