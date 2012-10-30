@@ -16,11 +16,12 @@ Following this library will be the creation of play2-AnormCypher, the plugin for
 You'll probably notice that this usage is very close to Play's Anorm. That is the idea!
 
 ### Configuring a server
-The default is localhost, but you can specify a special server when your app is starting via the `setHost` or `setURL` options. Authentication support will come soon.
+The default is localhost, but you can specify a special server when your app is starting via the `setHost` or `setURL` 
+options. Authentication and multi-server support will come soon.
 ``` Scala
 import anormcypher._
 
-Neo4jREST.setHost("localhost", 7474, "/db/data/")
+Neo4jREST.setServer("localhost", 7474, "/db/data/")
 ```
 
 ### Executing Cypher Queries
