@@ -21,7 +21,7 @@ options. Authentication and multi-server support will come soon.
 ``` Scala
 import anormcypher._
 
-Neo4jREST.setHost("localhost", 7474, "/db/data/")
+Neo4jREST.setServer("localhost", 7474, "/db/data/")
 ```
 
 ### Executing Cypher Queries
