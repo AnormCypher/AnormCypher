@@ -11,5 +11,6 @@ resolvers += "codahale" at "http://repo.codahale.com/"
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "1.8" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.9.2",
-  "com.codahale" % "jerkson_2.9.1" % "0.5.0"
+  "com.codahale" % "jerkson_2.9.1" % "0.5.0",
+  "com.fasterxml.jackson.module" % "jackson-module-scala" % "2.1.1"
 )

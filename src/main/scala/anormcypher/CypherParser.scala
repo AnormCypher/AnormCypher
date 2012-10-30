@@ -26,7 +26,8 @@ object CypherParser {
 
   def long(columnName: String): RowParser[Long] = get[Long](columnName)(implicitly[Column[Long]])
 
-  def date(columnName: String): RowParser[Date] = get[Date](columnName)(implicitly[Column[Date]])
+  // TODO use JodaTime and auto-convert to dates
+  //def date(columnName: String): RowParser[Date] = get[Date](columnName)(implicitly[Column[Date]])
 
   def getAliased[T](aliasName: String)(implicit extractor: anormcypher.Column[T]): RowParser[T] = RowParser { row =>
     import MayErr._

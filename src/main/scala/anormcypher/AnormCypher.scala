@@ -1,7 +1,6 @@
 package anormcypher
 
 import MayErr._
-import java.util.Date
 import collection.TraversableOnce
 
 abstract class CypherRequestError
@@ -14,30 +13,6 @@ case class TypeDoesNotMatch(message: String) extends CypherRequestError
 case class UnexpectedNullableFound(on: String) extends CypherRequestError
 case object NoColumnsInReturnedResult extends CypherRequestError
 case class CypherMappingError(msg: String) extends CypherRequestError
-
-abstract class Pk[+ID] {
-
-  def toOption: Option[ID] = this match {
-    case Id(x) => Some(x)
-    case NotAssigned => None
-  }
-
-  def isDefined: Boolean = toOption.isDefined
-  def get: ID = toOption.get
-  def getOrElse[V >: ID](id: V): V = toOption.getOrElse(id)
-  def map[B](f: ID => B) = toOption.map(f)
-  def flatMap[B](f: ID => Option[B]) = toOption.flatMap(f)
-  def foreach(f: ID => Unit) = toOption.foreach(f)
-
-}
-
-case class Id[ID](id: ID) extends Pk[ID] {
-  override def toString() = id.toString
-}
-
-case object NotAssigned extends Pk[Nothing] {
-  override def toString() = "NotAssigned"
-}
 
 trait Column[A] extends ((Any, MetaDataItem) => MayErr[CypherRequestError, A])
 
@@ -132,23 +107,6 @@ object Column {
       case double: Double => Right(new java.math.BigDecimal(double))
       case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to BigDecimal for column " + qualified))
     }
-  }
-
-  implicit def rowToDate: Column[Date] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case date: Date => Right(date)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Date for column " + qualified))
-    }
-  }
-
-  implicit def rowToPk[T](implicit c: Column[T]): Column[Pk[T]] = Column.nonNull { (value, meta) =>
-    c(value, meta).map(Id(_))
-
-  }
-
-  implicit def rowToOption[T](implicit transformer: Column[T]): Column[Option[T]] = Column { (value, meta) =>
-    if (value != null) transformer(value, meta).map(Some(_)) else (Right(None): MayErr[CypherRequestError, Option[T]])
   }
 
 }
@@ -291,6 +249,7 @@ case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRo
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
 
+
 object Useful {
 
   case class Var[T](var content: T)
@@ -316,37 +275,12 @@ object Useful {
 
 }
 
-import CypherParser._
+case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
+  import Neo4jREST._
 
-// Jason - reading up on case classes and figuring what role ParameterValue plays
-/*
-case class SimpleCypher[T](cypher: CypherQuery, params: Seq[(String, ParameterValue[_])], defaultParser: CypherRowParser[T]) extends Cypher {
+  def apply() = sendQuery(this)
 
-  def on(args: (String, Any)*): SimpleCypher[T] = this.copy(params = (this.params) ++ args.map {
-    case (s: Symbol, v) => (s.name, v)
-    case (k, v) => (k.toString, v)
-  })
-
-  def onParams(args: ParameterValue[_]*): SimpleCypher[T] = this.copy(params = (this.params) ++ cypher.argsInitialOrder.zip(args))
-
-  def list()(implicit connection: NeoRESTConnection): Seq[T] = as(defaultParser*)
-
-  def single()(implicit connection: NeoRESTConnection): T = as(CypherResultSetParser.single(defaultParser))
-
-  def singleOpt()(implicit connection: NeoRESTConnection): Option[T] = as(CypherResultSetParser.singleOpt(defaultParser))
-
-  def using[U](p: CypherRowParser[U]): SimpleCypher[U] = SimpleCypher(cypher, params, p)
-
-}
-*/
-trait Cypher {
-
-  import CypherParser._
-  import scala.util.control.Exception._
-
-//  def apply()(implicit connection: NeoRESTConnection) = Cypher.resultSetToStream(resultSet())
-
-//  def resultSet()(implicit connection: NeoRESTConnection) = (getFilledStatement(connection).executeQuery())
+  def on(args:(String,Any) *) = this.copy(params=params++args)
 
 //  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
@@ -365,38 +299,11 @@ trait Cypher {
 
 }
 
-case class CypherQuery(query: String, argsInitialOrder: List[String] = List.empty) extends Cypher {
-
-//  def getFilledStatement(connection: NeoRESTConnection, getGeneratedKeys: Boolean = false): CypherStatement =
-//    asSimple.getFilledStatement(connection, getGeneratedKeys)
-
-//  private def defaultParser: CypherRowParser[CypherResultRow] = CypherRowParser(row => Success(row))
-
-//  def asSimple: SimpleCypher[CypherResutRow] = SimpleCypher(this, Nil, defaultParser)
-
-//  def asSimple[T](parser: CypherRowParser[T] = defaultParser): SimpleCypher[T] = SimpleCypher(this, Nil, parser)
-}
-
 
 object Cypher {
 
-  def cypher(inCypher: String): CypherQuery = {
-    val (cypher, paramsNames) = CypherStatementParser.parse(inCypher)
-    CypherQuery(cypher, paramsNames)
-  }
-
-/*  def metaData(rs: CypherResultSet) = {
-    val meta = rs.getMetaData()
-    val nbColumns = meta.getColumnCount()
-    MetaData(List.range(1, nbColumns + 1).map(i =>
-      MetaDataItem(column = ColumnName({
-        meta.getTableName(i)
-      } + "." + meta.getColumnName(i), alias = Option(meta.getColumnLabel(i))),
-        nullable = meta.isNullable(i) == columnNullable,
-        clazz = meta.getColumnClassName(i))))
-  }
-  */
-
+  def apply(cypher:String) = CypherStatement(cypher)
+/*
   def resultSetToStream(rs: CypherResultSet): Stream[CypherResultRow] = {
     //val rsMetaData = metaData(rs)
     //val columns = List.range(1, rsMetaData.columnCount + 1)
@@ -415,5 +322,5 @@ object Cypher {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
     }
-
+*/
 }

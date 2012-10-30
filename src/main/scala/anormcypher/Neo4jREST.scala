@@ -81,7 +81,6 @@ object Neo4jREST {
   }
 }
 
-case class CypherStatement(query:String, params:Map[String, Any] = Map())
 case class CypherRESTResult(columns: Vector[String], data: Seq[Seq[Any]])
 
 case class NeoNode(id:Long, props: Map[String, Any]) 
