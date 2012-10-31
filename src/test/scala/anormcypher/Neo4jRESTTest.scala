@@ -39,17 +39,21 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
   }
 
   it should "be able to retrieve collections of nodes" in {
-    Neo4jREST.sendQuery(CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' DELETE n;"))
-    val n = Neo4jREST.sendQuery(CypherStatement(query="CREATE (n {anormcyphername:'n'}) return n;")).map {
+    Cypher("START n=node(*) where has(n.anormcyphername) DELETE n;")()
+    val n = Cypher("CREATE (n {anormcyphername:'n'}) return n;")().map {
       row => row[NeoNode]("n")
     }.head
-    Neo4jREST.sendQuery(CypherStatement(query="CREATE (n {anormcyphername:'n2'}) return n;"))
-    val cypherStatement = CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' RETURN collect(n);")
+    val n2 = Cypher("CREATE (n {anormcyphername:'n2'}) return n;")().map {
+      row => row[NeoNode]("n")
+    }.head
+    val cypherStatement = CypherStatement(query="START n=node(*) where has(n.anormcyphername) RETURN collect(n);")
     val results = Neo4jREST.sendQuery(cypherStatement)
     val nodes = results.map { row =>
       row[Seq[NeoNode]]("collect(n)")
-    }
-    nodes.contains(NeoNode(n.id, Map("anormcyphername"->'n')))
+    }.head
+    nodes.size should equal (2)
+    nodes should contain (n)
+    nodes should contain (n2)
   }
 
 }
