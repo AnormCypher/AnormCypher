@@ -6,21 +6,35 @@ import anormcypher._
 import anormcypher.Neo4jREST._
 import scala.collection.JavaConverters._
 
-class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfter {
-  before {
+class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+  override def beforeEach() = {
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
-      (us {type:"Country", name:"Germany", code:"DEU", tag:"anormcyphertest"}),
-      (us {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest"});
+      (germany {type:"Country", name:"Germany", code:"DEU", tag:"anormcyphertest"}),
+      (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest"}),
+      (english {type:"Language", name:"English", code:"EN"}),
+      (french {type:"Language", name:"French", code:"FR"}),
+      (german {type:"Language", name:"German", code:"DE"}),
+      (arabic {type:"Language", name:"Arabic", code:"AR"}),
+      (italian {type:"Language", name:"Italian", code:"IT"}),
+      (russian {type:"Language", name:"Russian", code:"RU"}),
+      france-[:speaks {official:true}]->french,
+      france-[:speaks]->arabic,
+      france-[:speaks]->italian,
+      germany-[:speaks {official:true}]->german,
+      germany-[:speaks]->english,
+      germany-[:speaks]->russian,
+      (proptest {name:"proptest", tag:"anormcyphertest", f:1.234, i:1234, l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"], arrf:[1.234,2.345,3.456]});
       """)()
   }
 
-  after {
+  override def afterEach() = {
     // delete the test data
     Cypher("""start n=node(*)
+      match n-[r?]-m
       where n.tag! = "anormcyphertest"
-      delete n;
+      delete n, r, m;
       """)()
   }
 
@@ -79,6 +93,37 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfter {
     Cypher(query)() should equal (test)
     Cypher(query)() should equal (test)
     Cypher(query)() should equal (test)
+  }
+
+  it should "be able to extract properties of different types" in {
+    val allProps = Cypher("""
+      start n=node(*) 
+      where n.name! = "proptest"
+      return n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf;
+      """)
+    val props = allProps().map(row => 
+      List(
+        row[Int]("n.i"), 
+        row[Long]("n.l"),
+        row[String]("n.s"),
+        row[Double]("n.f"),
+        row[Seq[Int]]("n.arri"),
+        row[Seq[Long]]("n.arri"),
+        row[Seq[String]]("n.arrs"),
+        row[Seq[Double]]("n.arrf")
+      )
+    ).toList.head
+    props should equal (
+      List(
+        1234, 
+        12345678910l, 
+        "s", 
+        1.234,
+        Vector(1,2,3,4), 
+        Vector(1,2,3,4), 
+        Vector("a","b","c"), 
+        Vector(1.234, 2.345, 3.456))
+    )
   }
 
 }

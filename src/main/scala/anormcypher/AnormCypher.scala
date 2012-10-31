@@ -98,19 +98,48 @@ object Column {
     }
   }
 
-  implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
+  def toSeq[A](value:Any, qualified:ColumnName, converter: (Any) => A) = {
     value match {
       case list: java.util.ArrayList[Any] => 
         try {
           Right(list.asScala.map { 
-            e => Neo4jREST.asNode(e).get match { case n:NeoNode => n }
-          }.toSeq)
+            e => e match { case s:Any => converter(s) }
+          }.toIndexedSeq)
         } catch {
           case e:Exception => Left(InnerTypeDoesNotMatch(e.getMessage))
         }
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Seq[NeoNode] for column " + qualified))
+      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Seq[] for column " + qualified))
     }
+  }
+
+  implicit def rowToSeqString: Column[Seq[String]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[String](value, qualified, (s:Any) => s.toString)
+  }
+
+  implicit def rowToSeqInt: Column[Seq[Int]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[Int](value, qualified, (s:Any) => s.toString.toInt)
+  }
+
+  implicit def rowToSeqLong: Column[Seq[Long]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[Long](value, qualified, (s:Any) => s.toString.toLong)
+  }
+
+  implicit def rowToSeqDouble: Column[Seq[Double]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[Double](value, qualified, (s:Any) => s.toString.toDouble)
+  }
+
+  implicit def rowToSeqNeoRelationship: Column[Seq[NeoRelationship]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[NeoRelationship](value, qualified, (r:Any) => Neo4jREST.asRelationship(r).get)
+  }
+
+  implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    toSeq[NeoNode](value, qualified, (n:Any) => Neo4jREST.asNode(n).get)
   }
 
   implicit def rowToBigInteger: Column[java.math.BigInteger] = Column.nonNull { (value, meta) =>

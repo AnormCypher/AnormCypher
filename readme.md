@@ -8,8 +8,6 @@ The goals of this library are to provide a great API to use Cypher, and it will 
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
 http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
-Following this library will be the creation of play2-AnormCypher, the plugin for Play2.
-
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
 
 ## Usage
