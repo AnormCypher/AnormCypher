@@ -2,6 +2,7 @@ package anormcypher
 
 import MayErr._
 import collection.TraversableOnce
+import scala.collection.JavaConverters._
 
 abstract class CypherRequestError
 case class ColumnNotFound(columnName: String, possibilities: List[String]) extends CypherRequestError {
@@ -10,6 +11,7 @@ case class ColumnNotFound(columnName: String, possibilities: List[String]) exten
 }
 
 case class TypeDoesNotMatch(message: String) extends CypherRequestError
+case class InnerTypeDoesNotMatch(message: String) extends CypherRequestError
 case class UnexpectedNullableFound(on: String) extends CypherRequestError
 case object NoColumnsInReturnedResult extends CypherRequestError
 case class CypherMappingError(msg: String) extends CypherRequestError
@@ -85,6 +87,29 @@ object Column {
       case int: Int => Right(int: Long)
       case long: Long => Right(long)
       case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Long for column " + qualified))
+    }
+  }
+
+  implicit def rowToNeoNode: Column[NeoNode] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    value match {
+      case node: java.util.LinkedHashMap[String,Any] => Neo4jREST.asNode(node)
+      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to NeoNode for column " + qualified))
+    }
+  }
+
+  implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    value match {
+      case list: java.util.ArrayList[Any] => 
+        try {
+          Right(list.asScala.map { 
+            e => Neo4jREST.asNode(e).get match { case n:NeoNode => n }
+          }.toSeq)
+        } catch {
+          case e:Exception => Left(InnerTypeDoesNotMatch(e.getMessage))
+        }
+      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Seq[NeoNode] for column " + qualified))
     }
   }
 
@@ -199,11 +224,10 @@ case class MetaData(ms: List[MetaDataItem]) {
 
 trait CypherRow {
 
-  val metaData: MetaData
-
   import scala.reflect.Manifest
 
   protected[anormcypher] val data: List[Any]
+  protected[anormcypher] val metaData: MetaData
 
   lazy val asList = data.zip(metaData.ms.map(_.nullable)).map(i => if (i._2) Option(i._1) else i._1)
 
@@ -243,12 +267,11 @@ trait CypherRow {
 
 }
 
-case class MockRow(data: List[Any], metaData: MetaData) extends CypherRow
+case class MockRow(metaData:MetaData, data: List[Any]) extends CypherRow
 
-case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRow {
+case class CypherResultRow(metaData:MetaData, data: List[Any]) extends CypherRow {
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
-
 
 object Useful {
 
@@ -280,7 +303,7 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
 
   def apply() = sendQuery(this)
 
-  def on(args:(String,Any) *) = this.copy(params=params++args)
+  def on(args:(String,Any) *) = this.copy(params=params ++ args)
 
 //  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 

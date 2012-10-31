@@ -23,8 +23,11 @@ object CypherParser {
   def bool(columnName: String): RowParser[Boolean] = get[Boolean](columnName)(implicitly[Column[Boolean]])
 
   def int(columnName: String): RowParser[Int] = get[Int](columnName)(implicitly[Column[Int]])
-
+  
   def long(columnName: String): RowParser[Long] = get[Long](columnName)(implicitly[Column[Long]])
+  
+  def node(columnName: String): RowParser[NeoNode] = get[NeoNode](columnName)(implicitly[Column[NeoNode]])
+
 
   // TODO use JodaTime and auto-convert to dates
   //def date(columnName: String): RowParser[Date] = get[Date](columnName)(implicitly[Column[Date]])

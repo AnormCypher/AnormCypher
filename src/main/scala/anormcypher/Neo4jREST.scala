@@ -3,7 +3,7 @@ package anormcypher
 import dispatch._
 import com.codahale.jerkson.Json._
 import scala.collection.JavaConverters._
-
+import anormcypher.MayErr._
 
 object Neo4jREST {
   // autoconvert to scala types
@@ -21,24 +21,24 @@ object Neo4jREST {
     baseURL = url
   }
 
-  def sendQuery(stmt: CypherStatement): Seq[Map[String, Any]] = {
+  def sendQuery(stmt: CypherStatement): Stream[CypherResultRow] = {
     val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
     cypherRequest.setBody(generate(stmt))
     // TODO: make not blow up for exception cases
     val strResult = Http(cypherRequest OK as.String)
     val cypherRESTResult = parse[CypherRESTResult](strResult())
-    // build a sequence of Maps for the results
-    cypherRESTResult.data.map { 
-      d => d.zipWithIndex.map { 
-        case (e, idx) => 
-          (cypherRESTResult.columns(idx), e) 
-      }.toMap 
-    }
+    val metaDataItems = cypherRESTResult.columns.map {
+      c => MetaDataItem(ColumnName(c, None), false, "String") 
+    }.toList
+    val metaData = MetaData(metaDataItems)
+    val data = cypherRESTResult.data.map {
+      d => CypherResultRow(metaData, d.toList)
+    }.toStream
+    data
   }
 
-
   // TODO fix type erasure warnings in the matching... 
-  def asNode(n:Any):NeoNode = {
+  def asNode(n:Any):MayErr[CypherRequestError, NeoNode] = {
     try { 
       n match {
         case node:java.util.LinkedHashMap[String, Any] => {
@@ -48,15 +48,15 @@ object Neo4jREST {
           val data = node.get("data") match {
             case dataMap:java.util.LinkedHashMap[String,Any] => dataMap.asScala.toMap
           }
-          NeoNode(id, data)
+          Right(NeoNode(id, data))
         }
       }
     } catch {
-        case e: Exception => throw new RuntimeException("Unexpected type while building a Node", e)
+        case e: Exception => Left(TypeDoesNotMatch("Unexpected type while building a Node"))
     }
   }
 
-  def asRelationship(n:Any):NeoRelationship = {
+  def asRelationship(n:Any):MayErr[CypherRequestError, NeoRelationship] = {
     try { 
       n match {
         case node:java.util.LinkedHashMap[String, Any] => {
@@ -72,11 +72,11 @@ object Neo4jREST {
           val data = node.get("data") match {
             case dataMap:java.util.LinkedHashMap[String,Any] => dataMap.asScala.toMap
           }
-          NeoRelationship(id, data, end, start)
+          Right(NeoRelationship(id, data, end, start))
         }
       }
     } catch {
-        case e: Exception => throw new RuntimeException("Unexpected type while building a Node", e)
+      case e: Exception => Left(TypeDoesNotMatch("Unexpected type while building a relationship"))
     }
   }
 }
