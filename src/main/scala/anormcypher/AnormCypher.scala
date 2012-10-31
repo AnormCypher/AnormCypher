@@ -299,6 +299,7 @@ trait CypherRow {
 case class MockRow(metaData:MetaData, data: List[Any]) extends CypherRow
 
 case class CypherResultRow(metaData:MetaData, data: List[Any]) extends CypherRow {
+
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
 
@@ -329,10 +330,37 @@ object Useful {
 
 case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
   import Neo4jREST._
+  import dispatch._
+  import com.codahale.jerkson.Json._
 
   def apply() = sendQuery(this)
 
   def on(args:(String,Any) *) = this.copy(params=params ++ args)
+
+  def execute(): Boolean = {
+    val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
+    cypherRequest.setBody(generate(this))
+
+    var exit_status: Boolean = true 
+
+    for (response <- Http(cypherRequest OK as.String).either) {
+      if (response.isLeft) {
+        println("Response from .execute() is: " + response.left.get)
+        exit_status = false
+      } else {
+        val cypherRESTResult = parse[CypherRESTResult](response.right.get)
+        val metaDataItems = cypherRESTResult.columns.map { 
+          c => MetaDataItem(ColumnName(c, None), false, "String")
+        }.toList
+        val metaData = MetaData(metaDataItems)
+        val data = cypherRESTResult.data.map { 
+          d => CypherResultRow(metaData, d.toList)
+        }.toStream
+      }
+    }
+    return exit_status
+  }
+
 
 //  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
