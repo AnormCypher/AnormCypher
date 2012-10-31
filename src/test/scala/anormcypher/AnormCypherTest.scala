@@ -46,6 +46,15 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     Cypher(query) should equal (CypherStatement(query))
   } 
 
+  it should "be able to make a query without parameters" in {
+    val query = """
+      START n=node(*) 
+      RETURN n;
+      """
+    val cypherStatement = CypherStatement(query)
+    cypherStatement()
+  }
+
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
       START n=node(0) 

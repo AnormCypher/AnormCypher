@@ -7,12 +7,7 @@ import scala.collection.JavaConverters._
 
 class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
 
-  "A Neo4jREST" should "be able to make a query without parameters" in {
-    val cypherStatement = CypherStatement(query="START n=node(*) RETURN n;")
-    cypherStatement()
-  }
-
-  it should "be able to delete and create nodes" in {
+  "A Neo4jREST" should "be able to delete and create nodes" in {
     Neo4jREST.sendQuery(CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' DELETE n;"))
     Neo4jREST.sendQuery(CypherStatement(query="CREATE (n {anormcyphername:'n'})"))
     val cypherStatement = CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' RETURN n;")
@@ -21,6 +16,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
     }
     results.size should equal (1)
     results(0).props should equal (Map("anormcyphername"->"n"))
+    Thread.sleep(2000)
   }
 
   it should "be able to retrieve properties of nodes" in {
@@ -36,6 +32,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
     nodes(0).props("i") should equal (1)
     nodes(0).props("arr").asInstanceOf[java.util.ArrayList[Int]].asScala should equal (Vector(1,2,3))
     nodes(0).props("arrc").asInstanceOf[java.util.ArrayList[String]].asScala should equal (Vector("a","b","c"))
+    Thread.sleep(2000)
   }
 
   it should "be able to retrieve collections of nodes" in {
@@ -54,6 +51,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
     nodes.size should equal (2)
     nodes should contain (n)
     nodes should contain (n2)
+    Thread.sleep(2000)
   }
 
 }

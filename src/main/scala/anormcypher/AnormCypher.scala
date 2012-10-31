@@ -361,8 +361,12 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
     return exit_status
   }
 
+/*
+  def as[T](parser: CypherResultSetParser[T]): T = {
+    Cypher.as[T](parser, resultSet())
+  }
+*/
 
-//  def as[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.as[T](parser, resultSet())
 
 //  def list[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
 
@@ -383,6 +387,7 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
 object Cypher {
 
   def apply(cypher:String) = CypherStatement(cypher)
+
 /*
   def resultSetToStream(rs: CypherResultSet): Stream[CypherResultRow] = {
     //val rsMetaData = metaData(rs)
