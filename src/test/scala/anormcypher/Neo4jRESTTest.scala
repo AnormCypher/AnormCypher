@@ -5,11 +5,17 @@ import org.scalatest.matchers._
 import anormcypher._
 import scala.collection.JavaConverters._
 
-class Neo4jRESTSpec extends FlatSpec with ShouldMatchers {
+class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+
+  override def beforeEach() = {
+    Cypher("CREATE (n {anormcyphername:'n'}) return n;")()
+  }
+
+  override def afterEach() = {
+   Cypher("START n=node(*) where n.anormcyphername! = 'n' DELETE n;")()
+  }
 
   "A Neo4jREST" should "be able to delete and create nodes" in {
-    Neo4jREST.sendQuery(CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' DELETE n;"))
-    Neo4jREST.sendQuery(CypherStatement(query="CREATE (n {anormcyphername:'n'})"))
     val cypherStatement = CypherStatement(query="START n=node(*) where n.anormcyphername! = 'n' RETURN n;")
     val results = Neo4jREST.sendQuery(cypherStatement).map { row =>
       row[NeoNode]("n")

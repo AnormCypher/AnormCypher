@@ -6,10 +6,6 @@ import scala.collection.JavaConverters._
 import anormcypher.MayErr._
 
 object Neo4jREST {
-  // autoconvert to scala types
-  implicit def mapWrapper(m: java.util.LinkedHashMap[String,Any]) = m.asScala.toMap
-  implicit def arrayWrapper(a: java.util.ArrayList[Any]) = a.asScala.toIndexedSeq
-
   // TODO support authentication
   var baseURL = "http://localhost:7474/db/data/"
 
@@ -76,7 +72,7 @@ object Neo4jREST {
           val data = node.get("data") match {
             case dataMap:java.util.LinkedHashMap[String,Any] => dataMap.asScala.toMap
           }
-          Right(NeoRelationship(id, data, end, start))
+          Right(NeoRelationship(id, data, start, end))
         }
       }
     } catch {
