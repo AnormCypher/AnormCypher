@@ -7,6 +7,8 @@ scalaVersion := "2.9.2"
 //scalacOptions ++= Seq("-unchecked", "-deprecation")
 
 resolvers += "codahale" at "http://repo.codahale.com/"
+
+parallelExecution in Test := false
  
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "1.8" % "test",

@@ -98,6 +98,14 @@ object Column {
     }
   }
 
+  implicit def rowToNeoRelationship: Column[NeoRelationship] = Column.nonNull { (value, meta) =>
+    val MetaDataItem(qualified, nullable, clazz) = meta
+    value match {
+      case rel: java.util.LinkedHashMap[String,Any] => Neo4jREST.asRelationship(rel)
+      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to NeoRelationship for column " + qualified))
+    }
+  }
+
   def toSeq[A](value:Any, qualified:ColumnName, converter: (Any) => A) = {
     value match {
       case list: java.util.ArrayList[Any] => 

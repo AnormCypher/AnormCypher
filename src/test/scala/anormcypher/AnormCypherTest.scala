@@ -51,13 +51,13 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       START n=node(*) 
       RETURN n;
       """
-    val cypherStatement = CypherStatement(query)
-    cypherStatement()
+    CypherStatement(query)()
   }
 
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
-      START n=node(0) 
+      START n=node(*) 
+      where n.name! = 'proptest'
       RETURN n;
       """
     Cypher(query)().size should equal (1)
@@ -137,7 +137,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
 
   it should "be able to .execute() a good query" in {
     val query = """
-      START n=node(0) 
+      START n=node(*) 
       RETURN n;
       """
     Cypher(query).execute() should equal (true)
