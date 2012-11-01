@@ -135,12 +135,19 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     )
   }
 
-  it should "be able to .execute() a query" in {
+  it should "be able to .execute() a good query" in {
     val query = """
       START n=node(0) 
       RETURN n;
       """
-    val exit_status: Boolean = Cypher(query).execute()
-    exit_status should equal (true)
+    Cypher(query).execute() should equal (true)
+  }
+
+  it should "be able to .execute() a bad query" in {
+    val query = """
+      START n=node(0) asdf 
+      RETURN n;
+      """
+    Cypher(query).execute()  should equal (false)
   }
 }

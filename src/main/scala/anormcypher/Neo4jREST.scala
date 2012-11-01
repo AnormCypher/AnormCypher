@@ -25,8 +25,12 @@ object Neo4jREST {
     val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
     cypherRequest.setBody(generate(stmt))
     // TODO: make not blow up for exception cases
-    val strResult = Http(cypherRequest OK as.String)
-    val cypherRESTResult = parse[CypherRESTResult](strResult())
+    val result = Http(cypherRequest OK as.String).either
+    val strResult = result() match {
+      case Right(content)         => { /*println("Content: " + content);*/ content; }
+      case Left(content) => {throw new RuntimeException("error:" + content) }
+    }
+    val cypherRESTResult = parse[CypherRESTResult](strResult)
     val metaDataItems = cypherRESTResult.columns.map {
       c => MetaDataItem(ColumnName(c, None), false, "String") 
     }.toList

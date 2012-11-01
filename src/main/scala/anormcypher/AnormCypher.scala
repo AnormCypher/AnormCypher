@@ -338,27 +338,14 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
   def on(args:(String,Any) *) = this.copy(params=params ++ args)
 
   def execute(): Boolean = {
-    val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json")
-    cypherRequest.setBody(generate(this))
-
-    var exit_status: Boolean = true 
-
-    for (response <- Http(cypherRequest OK as.String).either) {
-      if (response.isLeft) {
-        println("Response from .execute() is: " + response.left.get)
-        exit_status = false
-      } else {
-        val cypherRESTResult = parse[CypherRESTResult](response.right.get)
-        val metaDataItems = cypherRESTResult.columns.map { 
-          c => MetaDataItem(ColumnName(c, None), false, "String")
-        }.toList
-        val metaData = MetaData(metaDataItems)
-        val data = cypherRESTResult.data.map { 
-          d => CypherResultRow(metaData, d.toList)
-        }.toStream
-      }
+    var retVal = true
+    try {
+      // throws an exception on a query that doesn't succeed.
+      sendQuery(this)
+    } catch {
+      case e:Exception => retVal = false
     }
-    return exit_status
+    retVal
   }
 
 /*
