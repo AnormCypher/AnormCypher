@@ -21,6 +21,7 @@ branches:
 notifications:
   email:
     - freeman.wes@gmail.com
+    - jasonjackson@gmail.com
 
 services:
   - neo4j

@@ -16,12 +16,12 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
       n2-[:test {name:'r2'}]->n3;
       """)()
     Cypher("""
-      CREATE (n7 {'anormcyphername':'nprops', 'i':1, 'arr':[1,2,3], 'arrc':['a','b','c']});
-      """)()
-    Cypher("""
       CREATE (n5 {anormcyphername:'n5'}), 
         (n6 {anormcyphername:'n6'}), 
-        n5-[:test {name:'r', 'i':1, 'arr':[1,2,3], 'arrc':["a","b","c"]}]->n6;
+        n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"]}]->n6;
+      """)()
+    Cypher("""
+      CREATE (n7 {anormcyphername:'nprops', i:1, arr:[1,2,3], arrc:['a','b','c']});
       """)()
   }
 
@@ -72,18 +72,20 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
 
   it should "be able to retrieve collections of relationships" in {
     val (r,r2) = Cypher("""
-      CREATE (n {anormcyphername:'n'}), 
-        (n2 {anormcyphername:'n2'}), 
-        (n3 {anormcyphername:'n3'}), 
-        n-[:test {name:'r'}]->n2, 
-        n2-[:test {name:'r2'}]->n3;
+      CREATE (n {anormcyphername:'n8'}), 
+        (n2 {anormcyphername:'n9'}), 
+        (n3 {anormcyphername:'n10'}), 
+        n-[r:test {name:'r'}]->n2, 
+        n2-[r2:test {name:'r2'}]->n3
+        return r, r2;
       """)().map {
       row => (row[NeoRelationship]("r"), row[NeoRelationship]("r2"))
     }.head
     val results = Cypher("""
       START n=node(*) 
-      match p=n-[r*]->m 
+      match p=n-[r*2]->m
       where has(n.anormcyphername) 
+      and n.anormcyphername = "n8"
       RETURN r;
       """)()
     val rels = results.map { row =>
