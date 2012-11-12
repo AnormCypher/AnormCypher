@@ -1,9 +1,9 @@
-package anormcypher
+package org.anormcypher
 
 import dispatch._
 import com.codahale.jerkson.Json._
 import scala.collection.JavaConverters._
-import anormcypher.MayErr._
+import org.anormcypher.MayErr._
 
 object Neo4jREST {
   // TODO support authentication

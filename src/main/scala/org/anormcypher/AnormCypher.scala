@@ -1,4 +1,4 @@
-package anormcypher
+package org.anormcypher
 
 import MayErr._
 import collection.TraversableOnce

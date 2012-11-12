@@ -1,4 +1,4 @@
-package anormcypher
+package org.anormcypher
 
 import CypherParser.CypherResultSet
 
@@ -16,9 +16,9 @@ object CypherParser {
     } yield result).fold(e => Error(e), a => Success(a))
   }
 
-  def flatten[T1, T2, R](implicit f: anormcypher.TupleFlattener[(T1 ~ T2) => R]): ((T1 ~ T2) => R) = f.f
+  def flatten[T1, T2, R](implicit f: org.anormcypher.TupleFlattener[(T1 ~ T2) => R]): ((T1 ~ T2) => R) = f.f
 
-  def str(columnName: String): RowParser[String] = get[String](columnName)(implicitly[anormcypher.Column[String]])
+  def str(columnName: String): RowParser[String] = get[String](columnName)(implicitly[org.anormcypher.Column[String]])
 
   def bool(columnName: String): RowParser[Boolean] = get[Boolean](columnName)(implicitly[Column[Boolean]])
 
@@ -32,7 +32,7 @@ object CypherParser {
   // TODO use JodaTime and auto-convert to dates
   //def date(columnName: String): RowParser[Date] = get[Date](columnName)(implicitly[Column[Date]])
 
-  def getAliased[T](aliasName: String)(implicit extractor: anormcypher.Column[T]): RowParser[T] = RowParser { row =>
+  def getAliased[T](aliasName: String)(implicit extractor: org.anormcypher.Column[T]): RowParser[T] = RowParser { row =>
     import MayErr._
 
     (for {
@@ -43,7 +43,7 @@ object CypherParser {
     } yield result).fold(e => Error(e), a => Success(a))
   }
 
-  def get[T](columnName: String)(implicit extractor: anormcypher.Column[T]): RowParser[T] = RowParser { row =>
+  def get[T](columnName: String)(implicit extractor: org.anormcypher.Column[T]): RowParser[T] = RowParser { row =>
     import MayErr._
 
     (for {

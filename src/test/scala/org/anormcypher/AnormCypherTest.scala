@@ -1,9 +1,9 @@
-package anormcyphertest
+package org.anormcyphertest
 
 import org.scalatest._
 import org.scalatest.matchers._
-import anormcypher._
-import anormcypher.Neo4jREST._
+import org.anormcypher._
+import org.anormcypher.Neo4jREST._
 import scala.collection.JavaConverters._
 
 class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
