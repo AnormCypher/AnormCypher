@@ -1,6 +1,3 @@
-## Almost there
-This library is actually somewhat usable now. Soon we'll have it up in maven, etc., for your enjoyment.
-
 ## AnormCypher
 This is a Neo4j library purely for REST, using the Jerkson JSON parser and the Dispatch REST client library.
 
@@ -11,6 +8,36 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 Integration tests currently run against neo4j-community-1.9.M01
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
+
+## SBT Console Demo
+
+Switch to an empty folder and create a build.sbt file with the following:
+``` Scala
+resolvers += "anormcypher" at "http://repo.anormcypher.org/"
+
+libraryDependencies ++= Seq(
+  "org.anormcypher" %% "anormcypher" % "0.1"
+)
+```
+
+Run `sbt console`
+
+Assuming you have a local Neo4j Server running on the default port, try (note: this will create nodes on your database):
+``` Scala
+import org.anormcypher._
+
+// create some test nodes
+Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
+
+// a simple query
+val req = Cypher("start n=node(*) return n.name")
+
+// get a stream of results back
+val stream = req()
+
+// get the results and put them into a list
+stream.map(row => {row[String]("n.name")}).toList
+```
 
 ## Usage
 You'll probably notice that this usage is very close to Play's Anorm. That is the idea!
@@ -38,7 +65,7 @@ val result: Boolean = Cypher("START n=node(0) RETURN n").execute()
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
 
-To execute an update, you can use executeUpdate(), which returns the number of `(Nodes, Relationships, Properties)` updated.
+To execute an update, you can use executeUpdate(), which returns the number of `(Nodes, Relationships, Properties)` updated. Note: NOT SUPPORTED YET.
 
 `val result: (Int, Int, Int) = Cypher("START n=node(0) DELETE n").executeUpdate()`
 
@@ -119,14 +146,14 @@ Nodes can be extracted as so:
 
 ``` Scala
 Cypher("start n=node(*) where n.type='Country' return n.name as name, n")().map {
-  case Row(name: String, n: anormcypher.Node) => name -> n
+  case Row(name: String, n: org.anormcypher.NeoNode) => name -> n
 }
 ```  
 Here we specifically chose to use map, as we want an exception if the row isn’t in the format we expect.
 
 A `Node` is just a simple Scala `case class`, not quite as type-safe as configuring your own:
 ``` Scala
-case class Node(id:Int, props:Map[String,Any])
+case class NeoNode(id:Int, props:Map[String,Any])
 ```
 
 #### Relationships
@@ -135,14 +162,14 @@ Relationships can be extracted as so:
 
 ``` Scala
 Cypher("start n=node(*) match n-[r]-m where has(n.name) return n.name as name, r;")().map {
-  case Row(name: String, r: anormcypher.Relationship) => name -> r
+  case Row(name: String, r: org.anormcypher.NeoRelationship) => name -> r
 }
 ```  
 Here we specifically chose to use map, as we want an exception if the row isn’t in the format we expect.
 
 Similarly, a `Relationship` is just a simple Scala `case class`, not quite as type-safe as configuring your own:
 ``` Scala
-case class Relationship(id:Int, props:Map[String,Any])
+case class NeoRelationship(id:Int, props:Map[String,Any])
 ```
 
 ### Dealing with Nullable columns
@@ -178,7 +205,7 @@ You can use the parser API to create generic and reusable parsers that can parse
 
 Note: This is really useful, since most queries in a web application will return similar data sets. For example, if you have defined a parser able to parse a Country from a result set, and another Language parser, you can then easily compose them to parse both Country and Language from a single return.
 
-First you need to import `anormcypher.CypherParser._`
+First you need to import `org.anormcypher.CypherParser._`
 
 First you need a `CypherRowParser`, i.e. a parser able to parse one row to a Scala value. For example we can define a parser to transform a single column result set row, to a Scala `Long`:
 
