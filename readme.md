@@ -19,7 +19,7 @@ You'll probably notice that this usage is very close to Play's Anorm. That is th
 The default is localhost, but you can specify a special server when your app is starting via the `setServer` or `setURL` 
 options. Authentication and multi-server support will come soon.
 ``` Scala
-import anormcypher._
+import org.anormcypher._
 
 Neo4jREST.setServer("localhost", 7474, "/db/data/")
 ```
@@ -28,10 +28,10 @@ Neo4jREST.setServer("localhost", 7474, "/db/data/")
 
 To start you need to learn how to execute Cypher queries.
 
-First, `import anormcypher._`, and then simply use the Cypher object to create queries. 
+First, `import org.anormcypher._`, and then simply use the Cypher object to create queries. 
 
 ``` Scala
-import anormcypher._ 
+import org.anormcypher._ 
 
 val result: Boolean = Cypher("START n=node(0) RETURN n").execute()    
 ```
