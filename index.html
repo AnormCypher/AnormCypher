@@ -47,7 +47,7 @@ which I found to be pleasant to use with SQL. More info about Anorm can be found
 <div class="highlight"><pre><span class="n">resolvers</span> <span class="o">+=</span> <span class="s">"anormcypher"</span> <span class="n">at</span> <span class="s">"http://repo.anormcypher.org/"</span>
 
 <span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
-  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.1"</span>
+  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.1.0"</span>
 <span class="o">)</span>
 </pre></div>
 
@@ -103,24 +103,32 @@ options. Authentication and multi-server support will come soon.</p>
 
 <p>Since Scala supports multi-line strings, feel free to use them for complex Cypher statements:</p>
 
-<div class="highlight"><pre><span class="k">val</span> <span class="n">cypherQuery</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span>
+<div class="highlight"><pre><span class="c1">// create some sample data</span>
+<span class="k">val</span> <span class="n">result</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"""</span>
+<span class="s">  create (germany {name:"Germany", population:81726000, type:"Country", code:"DEU"}),</span>
+<span class="s">         (france {name:"France", population:65436552, type:"Country", code:"FRA", indepYear:1790}),</span>
+<span class="s">         (monaco {name:"Monaco", population:32000, type:"Country", code:"MCO"});</span>
+<span class="s">  """</span><span class="o">).</span><span class="n">execute</span><span class="o">()</span>
+<span class="c1">// result: Boolean = true</span>
+
+<span class="k">val</span> <span class="n">cypherQuery</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span>
   <span class="s">"""</span>
-<span class="s">    start n=node(1) </span>
-<span class="s">    match n--m</span>
-<span class="s">    where c.code = 'FRA';</span>
+<span class="s">    start n=node(*) </span>
+<span class="s">    match n--&gt;m</span>
+<span class="s">    where n.code = 'FRA';</span>
 <span class="s">    return n,m;</span>
 <span class="s">  """</span>
 <span class="o">)</span>
 </pre></div>
 
-<p>If your Cypher query needs dynamic parameters, you can declare placeholders like <code>{name}</code> in the query string, and later assign a value to them:</p>
+<p>If your Cypher query needs dynamic parameters, you can declare placeholders like <code>{name}</code> in the query string, and later assign a value to them with <code>on</code>:</p>
 
 <div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span>
   <span class="s">"""</span>
-<span class="s">    start n=node(1) </span>
-<span class="s">    match n--m</span>
-<span class="s">    where n.code = {countryCode};</span>
-<span class="s">    return n,m;</span>
+<span class="s">    start n=node(*) </span>
+<span class="s">    where n.type! = "Country"</span>
+<span class="s">      and n.code! = {countryCode}</span>
+<span class="s">    return n.name</span>
 <span class="s">  """</span>
 <span class="o">).</span><span class="n">on</span><span class="o">(</span><span class="s">"countryCode"</span> <span class="o">-&gt;</span> <span class="s">"FRA"</span><span class="o">)</span>
 </pre></div>
@@ -129,13 +137,13 @@ options. Authentication and multi-server support will come soon.</p>
 
 <p>The first way to access the results of a return query is to use the Stream API.</p>
 
-<p>When you call <code>apply()</code> on any Cypher statement, you will receive a lazy <code>Stream</code> of <code>Row</code> instances, where each row can be seen as a dictionary:</p>
+<p>When you call <code>apply()</code> on any Cypher statement, you will receive a lazy <code>Stream</code> of <code>CypherRow</code> instances, where each row can be seen as a dictionary:</p>
 
 <div class="highlight"><pre><span class="c1">// Create Cypher query</span>
-<span class="k">val</span> <span class="n">allCountries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.code as code, n.name as name;"</span><span class="o">)</span>
+<span class="k">val</span> <span class="n">allCountries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.code as code, n.name as name"</span><span class="o">)</span>
 
-<span class="c1">// Transform the resulting Stream[Row] to a List[(String,String)]</span>
-<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="n">allCountries</span><span class="o">().</span><span class="n">map</span><span class="o">(</span><span class="n">row</span> <span class="k">=&gt;</span> 
+<span class="c1">// Transform the resulting Stream[CypherRow] to a List[(String,String)]</span>
+<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="n">allCountries</span><span class="o">.</span><span class="n">apply</span><span class="o">().</span><span class="n">map</span><span class="o">(</span><span class="n">row</span> <span class="k">=&gt;</span> 
   <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"code"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span>
 <span class="o">).</span><span class="n">toList</span>
 </pre></div>
@@ -143,15 +151,16 @@ options. Authentication and multi-server support will come soon.</p>
 <p>In the following example we will count the number of Country entries in the database, so the result set will be a single row with a single column:</p>
 
 <div class="highlight"><pre><span class="c1">// First retrieve the first row</span>
-<span class="k">val</span> <span class="n">firstRow</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return count(n) as c"</span><span class="o">).</span><span class="n">apply</span><span class="o">().</span><span class="n">head</span>
+<span class="k">val</span> <span class="n">firstRow</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return count(n) as c"</span><span class="o">).</span><span class="n">apply</span><span class="o">().</span><span class="n">head</span>
 
 <span class="c1">// Next get the content of the 'c' column as Long</span>
 <span class="k">val</span> <span class="n">countryCount</span> <span class="k">=</span> <span class="n">firstRow</span><span class="o">[</span><span class="kt">Long</span><span class="o">](</span><span class="s">"c"</span><span class="o">)</span>
+<span class="c1">// countryCount: Long = 3</span>
 </pre></div>
 
 <h3>Using Pattern Matching</h3>
 
-<p>You can also use Pattern Matching to match and extract the Row content. In this case the column name doesn’t matter. Only the order and the type of the parameters is used to match.</p>
+<p>You can also use Pattern Matching to match and extract the CypherRow content. In this case the column name doesn’t matter. Only the order and the type of the parameters is used to match.</p>
 
 <p>The following example transforms each row to the correct Scala type:</p>
 
@@ -159,11 +168,15 @@ options. Authentication and multi-server support will come soon.</p>
 <span class="k">case</span> <span class="k">class</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">)</span> 
 <span class="k">case</span> <span class="k">class</span> <span class="nc">France</span>
 
-<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.population as pop"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">France</span><span class="o">()</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">pop</span><span class="k">:</span><span class="kt">Int</span><span class="o">)</span> <span class="k">if</span><span class="o">(</span><span class="n">pop</span> <span class="o">&gt;</span> <span class="mi">1000000</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SmallCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>      
+<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.population as pop"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">France</span><span class="o">()</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">pop</span><span class="k">:</span><span class="kt">Int</span><span class="o">)</span> <span class="k">if</span><span class="o">(</span><span class="n">pop</span> <span class="o">&gt;</span> <span class="mi">1000000</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SmallCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>      
 <span class="o">}</span>
+<span class="c1">// countries: scala.collection.immutable.Stream[Product with Serializable] = Stream(BigCountry(Germany), ?)</span>
+
+<span class="k">val</span> <span class="n">countryList</span> <span class="k">=</span> <span class="n">countries</span><span class="o">.</span><span class="n">toList</span>
+<span class="c1">// countryList: List[Product with Serializable] = List(BigCountry(Germany), France(), SmallCountry(Monaco))</span>
 </pre></div>
 
 <p>Note that since <code>collect(…)</code> ignores the cases where the partial function isn’t defined, it allows your code to safely ignore rows that you don’t expect.</p>
@@ -174,8 +187,8 @@ options. Authentication and multi-server support will come soon.</p>
 
 <p>Nodes can be extracted as so:</p>
 
-<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">n</span><span class="k">:</span> <span class="kt">org.anormcypher.NeoNode</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">n</span>
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">n</span><span class="k">:</span> <span class="kt">org.anormcypher.NeoNode</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">n</span>
 <span class="o">}</span>
 </pre></div>
 
@@ -191,7 +204,7 @@ options. Authentication and multi-server support will come soon.</p>
 <p>Relationships can be extracted as so:</p>
 
 <div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) match n-[r]-m where has(n.name) return n.name as name, r;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">r</span><span class="k">:</span> <span class="kt">org.anormcypher.NeoRelationship</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">r</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">r</span><span class="k">:</span> <span class="kt">org.anormcypher.NeoRelationship</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">r</span>
 <span class="o">}</span>
 </pre></div>
 
@@ -208,28 +221,28 @@ options. Authentication and multi-server support will come soon.</p>
 
 <p>For example, the <code>indepYear</code> of the <code>Country</code> table is nullable, so you need to match it as <code>Option[Int]</code>:</p>
 
-<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as year;"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
-  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="nc">Some</span><span class="o">(</span><span class="n">year</span><span class="k">:</span><span class="kt">Int</span><span class="o">))</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">year</span>
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as year;"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="nc">Some</span><span class="o">(</span><span class="n">year</span><span class="k">:</span><span class="kt">Int</span><span class="o">))</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">year</span>
 <span class="o">}</span>
 </pre></div>
 
 <p>If you try to match this column as <code>Int</code> it won’t be able to parse <code>Null</code> values. Suppose you try to retrieve the column content as <code>Int</code> directly from the dictionary:</p>
 
-<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
   <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"indepYear"</span><span class="o">)</span>
 <span class="o">}</span>
 </pre></div>
 
 <p>This will produce an <code>UnexpectedNullableFound(COUNTRY.INDEPYEAR)</code> exception if it encounters a null value, so you need to map it properly to an <code>Option[Int]</code>, as:</p>
 
-<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
   <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">Int</span><span class="o">]](</span><span class="s">"indepYear"</span><span class="o">)</span>
 <span class="o">}</span>
 </pre></div>
 
 <p>This is also true for the parser API, as we will see next.</p>
 
-<h3>Using the Parser API</h3>
+<h3>Using the Parser API (note: <code>.as</code> functionality is planned for 0.2--the Parser API is a work in progress)</h3>
 
 <p>You can use the parser API to create generic and reusable parsers that can parse the result of any Cypher query.</p>
 
@@ -257,7 +270,7 @@ options. Authentication and multi-server support will come soon.</p>
 <p><code>str("name") ~ int("population")</code>, will create a <code>CypherRowParser</code> able to parse a row containing a <code>String</code> name column and an <code>Integer</code> population column. Then we can create a <code>ResultSetParser</code> that will parse as many rows of this kind as it can, using *:</p>
 
 <div class="highlight"><pre><span class="k">val</span> <span class="n">populations</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span> <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="o">*</span> <span class="o">)</span> 
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span> <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="o">*</span> <span class="o">)</span> 
 <span class="o">}</span>
 </pre></div>
 
@@ -266,7 +279,7 @@ options. Authentication and multi-server support will come soon.</p>
 <p>You can also rewrite the same code as:</p>
 
 <div class="highlight"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">get</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"n.name"</span><span class="o">)~</span><span class="n">get</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"n.population"</span><span class="o">)*)</span> 
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">get</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"n.name"</span><span class="o">)~</span><span class="n">get</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"n.population"</span><span class="o">)*)</span> 
 <span class="o">}</span>
 </pre></div>
 
@@ -280,7 +293,7 @@ options. Authentication and multi-server support will come soon.</p>
 <p>Now, because transforming <code>A~B~C</code> types to <code>(A,B,C)</code> is a common task, we provide a <code>flatten</code> function that does exactly that. So you finally write:</p>
 
 <div class="highlight"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>,<span class="kt">Int</span><span class="o">)]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span>
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span>
     <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="n">map</span><span class="o">(</span><span class="n">flatten</span><span class="o">)</span> <span class="o">*</span>
   <span class="o">)</span> 
 <span class="o">}</span>
