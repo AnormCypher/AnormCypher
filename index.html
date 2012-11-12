@@ -1,0 +1,398 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>AnormCypher by AnormCypher</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>AnormCypher</h1>
+        <p>Cypher-oriented Scala library for Neo4j Server (REST)</p>
+
+        <p class="view"><a href="https://github.com/AnormCypher/AnormCypher">View the Project on GitHub <small>AnormCypher/AnormCypher</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/AnormCypher/AnormCypher/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/AnormCypher/AnormCypher/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/AnormCypher/AnormCypher">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h2>Almost there</h2>
+
+<p>This library is actually somewhat usable now. Soon we'll have it up in maven, etc., for your enjoyment.</p>
+
+<h2>AnormCypher</h2>
+
+<p>This is a Neo4j library purely for REST, using the Jerkson JSON parser and the Dispatch REST client library.</p>
+
+<p>The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
+which I found to be pleasant to use with SQL. More info about Anorm can be found here:
+<a href="http://www.playframework.org/documentation/2.0.4/ScalaAnorm">http://www.playframework.org/documentation/2.0.4/ScalaAnorm</a></p>
+
+<p>Integration tests currently run against neo4j-community-1.9.M01</p>
+
+<p><a href="https://travis-ci.org/AnormCypher/AnormCypher"><img src="https://travis-ci.org/AnormCypher/AnormCypher.png" alt="Build Status"></a></p>
+
+<h2>Usage</h2>
+
+<p>You'll probably notice that this usage is very close to Play's Anorm. That is the idea!</p>
+
+<h3>Configuring a server</h3>
+
+<p>The default is localhost, but you can specify a special server when your app is starting via the <code>setServer</code> or <code>setURL</code> 
+options. Authentication and multi-server support will come soon.</p>
+
+<div class="highlight"><pre><span class="k">import</span> <span class="nn">anormcypher._</span>
+
+<span class="nc">Neo4jREST</span><span class="o">.</span><span class="n">setServer</span><span class="o">(</span><span class="s">"localhost"</span><span class="o">,</span> <span class="mi">7474</span><span class="o">,</span> <span class="s">"/db/data/"</span><span class="o">)</span>
+</pre></div>
+
+<h3>Executing Cypher Queries</h3>
+
+<p>To start you need to learn how to execute Cypher queries.</p>
+
+<p>First, <code>import anormcypher._</code>, and then simply use the Cypher object to create queries. </p>
+
+<div class="highlight"><pre><span class="k">import</span> <span class="nn">anormcypher._</span> 
+
+<span class="k">val</span> <span class="n">result</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"START n=node(0) RETURN n"</span><span class="o">).</span><span class="n">execute</span><span class="o">()</span>    
+</pre></div>
+
+<p>The <code>execute()</code> method returns a Boolean value indicating whether the execution was successful.</p>
+
+<p>To execute an update, you can use executeUpdate(), which returns the number of <code>(Nodes, Relationships, Properties)</code> updated.</p>
+
+<p><code>val result: (Int, Int, Int) = Cypher("START n=node(0) DELETE n").executeUpdate()</code></p>
+
+<p>Since Scala supports multi-line strings, feel free to use them for complex Cypher statements:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">cypherQuery</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span>
+  <span class="s">"""</span>
+<span class="s">    start n=node(1) </span>
+<span class="s">    match n--m</span>
+<span class="s">    where c.code = 'FRA';</span>
+<span class="s">    return n,m;</span>
+<span class="s">  """</span>
+<span class="o">)</span>
+</pre></div>
+
+<p>If your Cypher query needs dynamic parameters, you can declare placeholders like <code>{name}</code> in the query string, and later assign a value to them:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span>
+  <span class="s">"""</span>
+<span class="s">    start n=node(1) </span>
+<span class="s">    match n--m</span>
+<span class="s">    where n.code = {countryCode};</span>
+<span class="s">    return n,m;</span>
+<span class="s">  """</span>
+<span class="o">).</span><span class="n">on</span><span class="o">(</span><span class="s">"countryCode"</span> <span class="o">-&gt;</span> <span class="s">"FRA"</span><span class="o">)</span>
+</pre></div>
+
+<h3>Retrieving data using the Stream API</h3>
+
+<p>The first way to access the results of a return query is to use the Stream API.</p>
+
+<p>When you call <code>apply()</code> on any Cypher statement, you will receive a lazy <code>Stream</code> of <code>Row</code> instances, where each row can be seen as a dictionary:</p>
+
+<div class="highlight"><pre><span class="c1">// Create Cypher query</span>
+<span class="k">val</span> <span class="n">allCountries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.code as code, n.name as name;"</span><span class="o">)</span>
+
+<span class="c1">// Transform the resulting Stream[Row] to a List[(String,String)]</span>
+<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="n">allCountries</span><span class="o">().</span><span class="n">map</span><span class="o">(</span><span class="n">row</span> <span class="k">=&gt;</span> 
+  <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"code"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span>
+<span class="o">).</span><span class="n">toList</span>
+</pre></div>
+
+<p>In the following example we will count the number of Country entries in the database, so the result set will be a single row with a single column:</p>
+
+<div class="highlight"><pre><span class="c1">// First retrieve the first row</span>
+<span class="k">val</span> <span class="n">firstRow</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return count(n) as c"</span><span class="o">).</span><span class="n">apply</span><span class="o">().</span><span class="n">head</span>
+
+<span class="c1">// Next get the content of the 'c' column as Long</span>
+<span class="k">val</span> <span class="n">countryCount</span> <span class="k">=</span> <span class="n">firstRow</span><span class="o">[</span><span class="kt">Long</span><span class="o">](</span><span class="s">"c"</span><span class="o">)</span>
+</pre></div>
+
+<h3>Using Pattern Matching</h3>
+
+<p>You can also use Pattern Matching to match and extract the Row content. In this case the column name doesn’t matter. Only the order and the type of the parameters is used to match.</p>
+
+<p>The following example transforms each row to the correct Scala type:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">SmallCountry</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">)</span> 
+<span class="k">case</span> <span class="k">class</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">)</span> 
+<span class="k">case</span> <span class="k">class</span> <span class="nc">France</span>
+
+<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.population as pop"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">France</span><span class="o">()</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">pop</span><span class="k">:</span><span class="kt">Int</span><span class="o">)</span> <span class="k">if</span><span class="o">(</span><span class="n">pop</span> <span class="o">&gt;</span> <span class="mi">1000000</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SmallCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>      
+<span class="o">}</span>
+</pre></div>
+
+<p>Note that since <code>collect(…)</code> ignores the cases where the partial function isn’t defined, it allows your code to safely ignore rows that you don’t expect.</p>
+
+<h3>Special data types</h3>
+
+<h4>Nodes</h4>
+
+<p>Nodes can be extracted as so:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">n</span><span class="k">:</span> <span class="kt">anormcypher.Node</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">n</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>Here we specifically chose to use map, as we want an exception if the row isn’t in the format we expect.</p>
+
+<p>A <code>Node</code> is just a simple Scala <code>case class</code>, not quite as type-safe as configuring your own:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">Node</span><span class="o">(</span><span class="n">id</span><span class="k">:</span><span class="kt">Int</span><span class="o">,</span> <span class="n">props</span><span class="k">:</span><span class="kt">Map</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">Any</span><span class="o">])</span>
+</pre></div>
+
+<h4>Relationships</h4>
+
+<p>Relationships can be extracted as so:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) match n-[r]-m where has(n.name) return n.name as name, r;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">r</span><span class="k">:</span> <span class="kt">anormcypher.Relationship</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">r</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>Here we specifically chose to use map, as we want an exception if the row isn’t in the format we expect.</p>
+
+<p>Similarly, a <code>Relationship</code> is just a simple Scala <code>case class</code>, not quite as type-safe as configuring your own:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">Relationship</span><span class="o">(</span><span class="n">id</span><span class="k">:</span><span class="kt">Int</span><span class="o">,</span> <span class="n">props</span><span class="k">:</span><span class="kt">Map</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">Any</span><span class="o">])</span>
+</pre></div>
+
+<h3>Dealing with Nullable columns</h3>
+
+<p>If a column can contain <code>Null</code> values in the database schema, you need to manipulate it as an <code>Option</code> type.</p>
+
+<p>For example, the <code>indepYear</code> of the <code>Country</code> table is nullable, so you need to match it as <code>Option[Int]</code>:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as year;"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="nc">Row</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="nc">Some</span><span class="o">(</span><span class="n">year</span><span class="k">:</span><span class="kt">Int</span><span class="o">))</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">year</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>If you try to match this column as <code>Int</code> it won’t be able to parse <code>Null</code> values. Suppose you try to retrieve the column content as <code>Int</code> directly from the dictionary:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+  <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"indepYear"</span><span class="o">)</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>This will produce an <code>UnexpectedNullableFound(COUNTRY.INDEPYEAR)</code> exception if it encounters a null value, so you need to map it properly to an <code>Option[Int]</code>, as:</p>
+
+<div class="highlight"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+  <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">Int</span><span class="o">]](</span><span class="s">"indepYear"</span><span class="o">)</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>This is also true for the parser API, as we will see next.</p>
+
+<h3>Using the Parser API</h3>
+
+<p>You can use the parser API to create generic and reusable parsers that can parse the result of any Cypher query.</p>
+
+<p>Note: This is really useful, since most queries in a web application will return similar data sets. For example, if you have defined a parser able to parse a Country from a result set, and another Language parser, you can then easily compose them to parse both Country and Language from a single return.</p>
+
+<p>First you need to import <code>anormcypher.CypherParser._</code></p>
+
+<p>First you need a <code>CypherRowParser</code>, i.e. a parser able to parse one row to a Scala value. For example we can define a parser to transform a single column result set row, to a Scala <code>Long</code>:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">rowParser</span> <span class="k">=</span> <span class="n">scalar</span><span class="o">[</span><span class="kt">Long</span><span class="o">]</span>
+</pre></div>
+
+<p>Then we have to transform it into a <code>CypherResultSetParser</code>. Here we will create a parser that parse a single row:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">rsParser</span> <span class="k">=</span> <span class="n">scalar</span><span class="o">[</span><span class="kt">Long</span><span class="o">].</span><span class="n">single</span>
+</pre></div>
+
+<p>So this parser will parse a result set to return a <code>Long</code>. It is useful to parse to results produced by a simple Cypher count query:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">count</span><span class="k">:</span> <span class="kt">Long</span> <span class="o">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) return count(n)"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">scalar</span><span class="o">[</span><span class="kt">Long</span><span class="o">].</span><span class="n">single</span><span class="o">)</span>
+</pre></div>
+
+<p>Let’s write a more complicated parser:</p>
+
+<p><code>str("name") ~ int("population")</code>, will create a <code>CypherRowParser</code> able to parse a row containing a <code>String</code> name column and an <code>Integer</code> population column. Then we can create a <code>ResultSetParser</code> that will parse as many rows of this kind as it can, using *:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">populations</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span> <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="o">*</span> <span class="o">)</span> 
+<span class="o">}</span>
+</pre></div>
+
+<p>As you see, this query’s result type is <code>List[String~Int]</code> - a list of country name and population items.</p>
+
+<p>You can also rewrite the same code as:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">get</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"n.name"</span><span class="o">)~</span><span class="n">get</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"n.population"</span><span class="o">)*)</span> 
+<span class="o">}</span>
+</pre></div>
+
+<p>Now what about the <code>String~Int</code> type? This is an AnormCypher type that is not really convenient to use outside of your database access code. You would rather have a simple tuple <code>(String, Int)</code> instead. You can use the map function on a <code>CypherRowParser</code> to transform its result to a more convenient type:</p>
+
+<div class="highlight"><pre><span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="n">map</span> <span class="o">{</span> <span class="k">case</span> <span class="n">n</span><span class="o">~</span><span class="n">p</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="n">n</span><span class="o">,</span><span class="n">p</span><span class="o">)</span> <span class="o">}</span>
+</pre></div>
+
+<p>Note: We created a tuple <code>(String,Int)</code> here, but there is nothing stopping you from transforming the <code>CypherRowParser</code> result to any other type, such as a custom case class.</p>
+
+<p>Now, because transforming <code>A~B~C</code> types to <code>(A,B,C)</code> is a common task, we provide a <code>flatten</code> function that does exactly that. So you finally write:</p>
+
+<div class="highlight"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>,<span class="kt">Int</span><span class="o">)]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type='Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span>
+    <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="n">map</span><span class="o">(</span><span class="n">flatten</span><span class="o">)</span> <span class="o">*</span>
+  <span class="o">)</span> 
+<span class="o">}</span>
+</pre></div>
+
+<p>Now let’s try with a more complicated example. How to parse the result of the following query to retrieve the country name and all spoken languages for a country code?</p>
+
+<pre lang="Cypher"><code>start country=node_auto_index(code="FRA")
+match country-[:speaks]-&gt;language
+return country.name, language.name;
+</code></pre>
+
+<p>Let's start by parsing all rows as a <code>List[(String,String)]</code> (a list of name,language tuples):</p>
+
+<div class="highlight"><pre><span class="k">var</span> <span class="n">p</span><span class="k">:</span> <span class="kt">CypherResultSetParser</span><span class="o">[</span><span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>,<span class="kt">String</span><span class="o">)]</span> <span class="kt">=</span> <span class="o">{</span>
+  <span class="kt">str</span><span class="o">(</span><span class="err">"</span><span class="kt">country.name</span><span class="err">"</span><span class="o">)</span> <span class="kt">~</span> <span class="kt">str</span><span class="o">(</span><span class="err">"</span><span class="kt">language.name</span><span class="err">"</span><span class="o">)</span> <span class="kt">map</span><span class="o">(</span><span class="kt">flatten</span><span class="o">)</span> <span class="kt">*</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>Now we get this kind of result:</p>
+
+<div class="highlight"><pre><span class="nc">List</span><span class="o">(</span>
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"Arabic"</span><span class="o">),</span> 
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"French"</span><span class="o">),</span> 
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"Italian"</span><span class="o">),</span> 
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"Portuguese"</span><span class="o">),</span> 
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"Spanish"</span><span class="o">),</span> 
+  <span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="s">"Turkish"</span><span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+
+<p>We can then use the Scala collection API, to transform it to the expected result:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">SpokenLanguages</span><span class="o">(</span><span class="n">country</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">languages</span><span class="k">:</span><span class="kt">Seq</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span>
+
+<span class="n">languages</span><span class="o">.</span><span class="n">headOption</span><span class="o">.</span><span class="n">map</span> <span class="o">{</span> <span class="n">f</span> <span class="k">=&gt;</span>
+  <span class="nc">SpokenLanguages</span><span class="o">(</span><span class="n">f</span><span class="o">.</span><span class="n">_1</span><span class="o">,</span> <span class="n">languages</span><span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_2</span><span class="o">))</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>Finally, we get this convenient function:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">SpokenLanguages</span><span class="o">(</span><span class="n">country</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">languages</span><span class="k">:</span><span class="kt">Seq</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span>
+
+<span class="k">def</span> <span class="n">spokenLanguages</span><span class="o">(</span><span class="n">countryCode</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">SpokenLanguages</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="k">val</span> <span class="n">languages</span><span class="k">:</span> <span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>, <span class="kt">String</span><span class="o">)]</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span>
+    <span class="s">"""</span>
+<span class="s">      start country=node_auto_index(code="{code}")</span>
+<span class="s">      match country-[:speaks]-&gt;language</span>
+<span class="s">      return country.name, language.name;</span>
+<span class="s">    """</span>
+  <span class="o">)</span>
+  <span class="o">.</span><span class="n">on</span><span class="o">(</span><span class="s">"code"</span> <span class="o">-&gt;</span> <span class="n">countryCode</span><span class="o">)</span>
+  <span class="o">.</span><span class="n">as</span><span class="o">(</span><span class="n">str</span><span class="o">(</span><span class="s">"country.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">str</span><span class="o">(</span><span class="s">"language.name"</span><span class="o">)</span> <span class="n">map</span><span class="o">(</span><span class="n">flatten</span><span class="o">)</span> <span class="o">*)</span>
+
+  <span class="n">languages</span><span class="o">.</span><span class="n">headOption</span><span class="o">.</span><span class="n">map</span> <span class="o">{</span> <span class="n">f</span> <span class="k">=&gt;</span>
+    <span class="nc">SpokenLanguages</span><span class="o">(</span><span class="n">f</span><span class="o">.</span><span class="n">_1</span><span class="o">,</span> <span class="n">languages</span><span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_2</span><span class="o">))</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>To continue, let’s complicate our example to separate the official language from the others:</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="k">class</span> <span class="nc">SpokenLanguages</span><span class="o">(</span>
+  <span class="n">country</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> 
+  <span class="n">officialLanguage</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">],</span> 
+  <span class="n">otherLanguages</span><span class="k">:</span><span class="kt">Seq</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>
+<span class="o">)</span>
+
+<span class="k">def</span> <span class="n">spokenLanguages</span><span class="o">(</span><span class="n">countryCode</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">SpokenLanguages</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="k">val</span> <span class="n">languages</span><span class="k">:</span> <span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>, <span class="kt">String</span>, <span class="kt">Boolean</span><span class="o">)]</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span>
+    <span class="s">"""</span>
+<span class="s">      start country=node_auto_index(code="{code}")</span>
+<span class="s">      match country-[:speaks]-&gt;language</span>
+<span class="s">      return country.name, language.name, language.isOfficial;</span>
+<span class="s">    """</span>
+  <span class="o">)</span>
+  <span class="o">.</span><span class="n">on</span><span class="o">(</span><span class="s">"code"</span> <span class="o">-&gt;</span> <span class="n">countryCode</span><span class="o">)</span>
+  <span class="o">.</span><span class="n">as</span> <span class="o">{</span>
+    <span class="n">str</span><span class="o">(</span><span class="s">"country.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">str</span><span class="o">(</span><span class="s">"language.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">str</span><span class="o">(</span><span class="s">"language.isOfficial"</span><span class="o">)</span> <span class="n">map</span> <span class="o">{</span>
+      <span class="k">case</span> <span class="n">n</span><span class="o">~</span><span class="n">l</span><span class="o">~</span><span class="s">"T"</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="n">n</span><span class="o">,</span><span class="n">l</span><span class="o">,</span><span class="kc">true</span><span class="o">)</span>
+      <span class="k">case</span> <span class="n">n</span><span class="o">~</span><span class="n">l</span><span class="o">~</span><span class="s">"F"</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="n">n</span><span class="o">,</span><span class="n">l</span><span class="o">,</span><span class="kc">false</span><span class="o">)</span>
+    <span class="o">}</span> <span class="o">*</span>
+  <span class="o">}</span>
+
+  <span class="n">languages</span><span class="o">.</span><span class="n">headOption</span><span class="o">.</span><span class="n">map</span> <span class="o">{</span> <span class="n">f</span> <span class="k">=&gt;</span>
+    <span class="nc">SpokenLanguages</span><span class="o">(</span>
+      <span class="n">f</span><span class="o">.</span><span class="n">_1</span><span class="o">,</span> 
+      <span class="n">languages</span><span class="o">.</span><span class="n">find</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_3</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_2</span><span class="o">),</span>
+      <span class="n">languages</span><span class="o">.</span><span class="n">filterNot</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_3</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_2</span><span class="o">)</span>
+    <span class="o">)</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+
+<p>If you try this on the world sample database, you will get:</p>
+
+<div class="highlight"><pre><span class="n">$</span> <span class="n">spokenLanguages</span><span class="o">(</span><span class="s">"FRA"</span><span class="o">)</span>
+<span class="o">&gt;</span> <span class="nc">Some</span><span class="o">(</span>
+    <span class="nc">SpokenLanguages</span><span class="o">(</span><span class="nc">France</span><span class="o">,</span><span class="nc">Some</span><span class="o">(</span><span class="nc">French</span><span class="o">),</span><span class="nc">List</span><span class="o">(</span>
+      <span class="nc">Arabic</span><span class="o">,</span> <span class="nc">Italian</span><span class="o">,</span> <span class="nc">Portuguese</span><span class="o">,</span> <span class="nc">Spanish</span><span class="o">,</span> <span class="nc">Turkish</span>
+    <span class="o">))</span>
+<span class="o">)</span>
+</pre></div>
+
+<h2>Contributors</h2>
+
+<ul>
+<li>Wes Freeman: <a href="https://github.com/wfreeman" class="user-mention">@wfreeman</a> on github</li>
+<li>Jason Jackson: <a href="https://github.com/jasonjackson" class="user-mention">@jasonjackson</a> on github</li>
+</ul><h2>Thanks</h2>
+
+<ul>
+<li>The Play Framework team for providing the Anorm library, the basis for this library.</li>
+<li>Coda Hale, for the Jerkson library</li>
+<li>Databinder.net, for the Dispatch library</li>
+<li>Neo Technologies for Neo4j!</li>
+</ul><h2>License LGPL</h2>
+
+<p>This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.</p>
+
+<p>You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a></p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/AnormCypher">AnormCypher</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
