@@ -213,7 +213,7 @@ Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indep
 
 This is also true for the parser API, as we will see next.
 
-### Using the Parser API
+### Using the Parser API (note: `.as` functionality is planned for 0.2--the Parser API is a work in progress)
 You can use the parser API to create generic and reusable parsers that can parse the result of any Cypher query.
 
 Note: This is really useful, since most queries in a web application will return similar data sets. For example, if you have defined a parser able to parse a Country from a result set, and another Language parser, you can then easily compose them to parse both Country and Language from a single return.
