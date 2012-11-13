@@ -16,7 +16,7 @@ Switch to an empty folder and create a build.sbt file with the following:
 resolvers += "anormcypher" at "http://repo.anormcypher.org/"
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.1.0"
+  "org.anormcypher" %% "anormcypher" % "0.2.0"
 )
 ```
 
@@ -139,6 +139,7 @@ case class SmallCountry(name:String)
 case class BigCountry(name:String) 
 case class France
 
+// NOTE: case CypherRow syntax is NOT YET SUPPORTED
 val countries = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.population as pop")().collect {
   case CypherRow("France", _) => France()
   case CypherRow(name:String, pop:Int) if(pop > 1000000) => BigCountry(name)
@@ -158,6 +159,7 @@ Note that since `collect(â€¦)` ignores the cases where the partial function isnâ
 Nodes can be extracted as so:
 
 ``` Scala
+// NOTE: case CypherRow syntax is NOT YET SUPPORTED
 Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n")().map {
   case CypherRow(name: String, n: org.anormcypher.NeoNode) => name -> n
 }
@@ -174,6 +176,7 @@ case class NeoNode(id:Int, props:Map[String,Any])
 Relationships can be extracted as so:
 
 ``` Scala
+// NOTE: case CypherRow syntax is NOT YET SUPPORTED
 Cypher("start n=node(*) match n-[r]-m where has(n.name) return n.name as name, r;")().map {
   case CypherRow(name: String, r: org.anormcypher.NeoRelationship) => name -> r
 }
@@ -191,6 +194,7 @@ If a column can contain `Null` values in the database schema, you need to manipu
 For example, the `indepYear` of the `Country` table is nullable, so you need to match it as `Option[Int]`:
 
 ``` Scala
+// NOTE: case CypherRow syntax is NOT YET SUPPORTED
 Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as year;")().collect {
   case CypherRow(name:String, Some(year:Int)) => name -> year
 }

@@ -27,7 +27,7 @@ object Neo4jREST {
     }
     val cypherRESTResult = parse[CypherRESTResult](strResult)
     val metaDataItems = cypherRESTResult.columns.map {
-      c => MetaDataItem(ColumnName(c, None), false, "String") 
+      c => MetaDataItem(c, false, "String") 
     }.toList
     val metaData = MetaData(metaDataItems)
     val data = cypherRESTResult.data.map {

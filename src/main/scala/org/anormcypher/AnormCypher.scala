@@ -105,8 +105,12 @@ object Column {
       case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to NeoRelationship for column " + qualified))
     }
   }
+  
+  implicit def rowToOption[T](implicit transformer: Column[T]): Column[Option[T]] = Column { (value, meta) =>
+    if (value != null) transformer(value, meta).map(Some(_)) else (Right(None): MayErr[CypherRequestError, Option[T]])
+  }
 
-  def toSeq[A](value:Any, qualified:ColumnName, converter: (Any) => A) = {
+  def toSeq[A](value:Any, qualified:String, converter: (Any) => A) = {
     value match {
       case list: java.util.ArrayList[Any] => 
         try {
@@ -219,44 +223,20 @@ object CypherRow {
   def unapplySeq(row: CypherRow): Option[List[Any]] = Some(row.asList)
 }
 
-case class MetaDataItem(column: ColumnName, nullable: Boolean, clazz: String)
-case class ColumnName(qualified: String, alias: Option[String])
+case class MetaDataItem(column: String, nullable: Boolean, clazz: String)
 
 case class MetaData(ms: List[MetaDataItem]) {
   def get(columnName: String) = {
     val columnUpper = columnName.toUpperCase()
-    dictionary2.get(columnUpper)
-      .orElse(dictionary.get(columnUpper))
+    dictionary.get(columnUpper)
   }
 
-  def getAliased(aliasName: String) = {
-    val columnUpper = aliasName.toUpperCase()
-    aliasedDictionary.get(columnUpper)
-  }
-
-  private lazy val dictionary: Map[String, (ColumnName, Boolean, String)] =
-    ms.map(m => (m.column.qualified.toUpperCase(), (m.column, m.nullable, m.clazz))).toMap
-
-  private lazy val dictionary2: Map[String, (ColumnName, Boolean, String)] = {
-    ms.map(m => {
-      val column = m.column.qualified.split('.').last;
-      (column.toUpperCase(), (m.column, m.nullable, m.clazz))
-    }).toMap
-  }
-
-  private lazy val aliasedDictionary: Map[String, (ColumnName, Boolean, String)] = {
-    ms.flatMap(m => {
-      m.column.alias.map { a =>
-        Map(a.toUpperCase() -> (m.column, m.nullable, m.clazz))
-      }.getOrElse(Map.empty)
-
-    }).toMap
-  }
+  private lazy val dictionary: Map[String, (String, Boolean, String)] =
+    ms.map(m => (m.column.toUpperCase(), (m.column, m.nullable, m.clazz))).toMap
 
   lazy val columnCount = ms.size
 
-  lazy val availableColumns: List[String] = ms.flatMap(i => i.column.qualified :: i.column.alias.toList)
-
+  lazy val availableColumns: List[String] = ms.flatMap(i => List(i.column))
 }
 
 trait CypherRow {
@@ -268,7 +248,7 @@ trait CypherRow {
 
   lazy val asList = data.zip(metaData.ms.map(_.nullable)).map(i => if (i._2) Option(i._1) else i._1)
 
-  lazy val asMap: scala.collection.Map[String, Any] = metaData.ms.map(_.column.qualified).zip(asList).toMap
+  lazy val asMap: scala.collection.Map[String, Any] = metaData.ms.map(_.column).zip(asList).toMap
 
   def get[A](a: String)(implicit c: Column[A]): MayErr[CypherRequestError, A] = CypherParser.get(a)(c)(this) match {
     case Success(a) => Right(a)
@@ -282,21 +262,12 @@ trait CypherRow {
     case _ => Class.forName(t)
   }
 
-  private lazy val ColumnsDictionary: Map[String, Any] = metaData.ms.map(_.column.qualified.toUpperCase()).zip(data).toMap
-  private lazy val AliasesDictionary: Map[String, Any] = metaData.ms.flatMap(_.column.alias.map(_.toUpperCase())).zip(data).toMap
+  private lazy val ColumnsDictionary: Map[String, Any] = metaData.ms.map(_.column.toUpperCase()).zip(data).toMap
   private[anormcypher] def get1(a: String): MayErr[CypherRequestError, Any] = {
     for (
       meta <- metaData.get(a).toRight(ColumnNotFound(a, metaData.availableColumns));
       (column, nullable, clazz) = meta;
-      result <- ColumnsDictionary.get(column.qualified.toUpperCase()).toRight(ColumnNotFound(column.qualified, metaData.availableColumns))
-    ) yield result
-  }
-
-  private[anormcypher] def getAliased(a: String): MayErr[CypherRequestError, Any] = {
-    for (
-      meta <- metaData.getAliased(a).toRight(ColumnNotFound(a, metaData.availableColumns));
-      (column, nullable, clazz) = meta;
-      result <- column.alias.flatMap(a => AliasesDictionary.get(a.toUpperCase())).toRight(ColumnNotFound(column.alias.getOrElse(a), metaData.availableColumns))
+      result <- ColumnsDictionary.get(column.toUpperCase()).toRight(ColumnNotFound(column, metaData.availableColumns))
     ) yield result
   }
 
@@ -307,8 +278,7 @@ trait CypherRow {
 case class MockRow(metaData:MetaData, data: List[Any]) extends CypherRow
 
 case class CypherResultRow(metaData:MetaData, data: List[Any]) extends CypherRow {
-
-  override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
+  override def toString() = "CypherResultRow(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
 }
 
 object Useful {
@@ -338,8 +308,7 @@ object Useful {
 
 case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
   import Neo4jREST._
-  import dispatch._
-  import com.codahale.jerkson.Json._
+  import CypherParser._
 
   def apply() = sendQuery(this)
 
@@ -356,51 +325,36 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
     retVal
   }
 
-/*
   def as[T](parser: CypherResultSetParser[T]): T = {
-    Cypher.as[T](parser, resultSet())
+    Cypher.as[T](parser, sendQuery(this))
   }
-*/
 
+  def list[A](rowParser: CypherRowParser[A])(): Seq[A] = as(rowParser *)
 
-//  def list[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Seq[A] = as(rowParser *)
+  def single[A](rowParser: CypherRowParser[A])(): A = as(CypherResultSetParser.single(rowParser))
 
-//  def single[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): A = as(CypherResultSetParser.single(rowParser))
+  def singleOpt[A](rowParser: CypherRowParser[A])(): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-//  def singleOpt[A](rowParser: CypherRowParser[A])(implicit connection: NeoRESTConnection): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
-
-//  def parse[T](parser: CypherResultSetParser[T])(implicit connection: NeoRESTConnection): T = Cypher.parse[T](parser, resultSet())
-
-//  def execute()(implicit connection: NeoRESTConnection): Boolean = getFilledStatement(connection).execute()
-
-//  def executeUpdate()(implicit connection: NeoRESTConnection): Int =
-//    getFilledStatement(connection).executeUpdate()
-
+  def parse[T](parser: CypherResultSetParser[T])(): T = Cypher.parse[T](parser, sendQuery(this))
 }
 
 
 object Cypher {
 
+  import CypherParser._
+
   def apply(cypher:String) = CypherStatement(cypher)
 
-/*
-  def resultSetToStream(rs: CypherResultSet): Stream[CypherResultRow] = {
-    //val rsMetaData = metaData(rs)
-    //val columns = List.range(1, rsMetaData.columnCount + 1)
-    //def data(rs: CypherResultSet) = columns.map(nb => rs.getObject(nb))
-    null
-  }
-
-  def as[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =
-    parser(resultSetToStream(rs)) match {
+  def as[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
+    parser(rs) match {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
     }
 
-  def parse[T](parser: CypherResultSetParser[T], rs: CypherResultSet): T =
-    parser(resultSetToStream(rs)) match {
+  def parse[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
+    parser(rs) match {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
     }
-*/
+
 }

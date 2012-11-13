@@ -11,8 +11,9 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
-      (germany {type:"Country", name:"Germany", code:"DEU", tag:"anormcyphertest"}),
-      (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest"}),
+      (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
+      (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
+      (monaco {name:"Monaco", population:32000, type:"Country", code:"MCO", tag:"anormcyphertest"}),
       (english {type:"Language", name:"English", code:"EN"}),
       (french {type:"Language", name:"French", code:"FR"}),
       (german {type:"Language", name:"German", code:"DE"}),
@@ -86,6 +87,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     ).toList
     countries should equal (
       List("USA" -> "United States",
+           "MCO" -> "Monaco",
            "DEU" -> "Germany",
            "FRA" -> "France")
     )
@@ -150,4 +152,28 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       """
     Cypher(query).execute()  should equal (false)
   }
+
+  it should "be able to parse nullable fields of various types" in {
+    val query = """
+      START n=node(*)
+      WHERE n.type! = 'Country'
+      RETURN n.indepYear? as indepYear;
+      """;
+    val results = Cypher(query)().map {
+      row => row[Option[Int]]("indepYear")
+    }.toList
+    results should equal (List(None, None, Some(1789), None))
+  }
+
+  it should "fail on null fields if they're not Option" in {
+    val query = """
+      START n=node(*)
+      WHERE n.type! = 'Country'
+      RETURN n.indepYear? as indepYear;
+      """;
+    evaluating { Cypher(query)().map {
+      row => row[Int]("indepYear")
+    } } should produce [RuntimeException]
+  }
+
 }
