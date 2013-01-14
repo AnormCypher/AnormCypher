@@ -1,5 +1,5 @@
 #!/bin/bash
-#http://dist.neo4j.org/neo4j-community-1.9.M01-unix.tar.gz
+#http://dist.neo4j.org/neo4j-community-1.9.M03-unix.tar.gz
 VERSION="1.9.M01"
 DIR="neo4j-community-$VERSION"
 FILE="$DIR-unix.tar.gz"
