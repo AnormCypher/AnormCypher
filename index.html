@@ -77,11 +77,15 @@ which I found to be pleasant to use with SQL. More info about Anorm can be found
 <h3>Configuring a server</h3>
 
 <p>The default is localhost, but you can specify a special server when your app is starting via the <code>setServer</code> or <code>setURL</code> 
-options. Authentication and multi-server support will come soon.</p>
+options.</p>
 
 <div class="highlight"><pre><span class="k">import</span> <span class="nn">org.anormcypher._</span>
 
+<span class="c1">// without auth</span>
 <span class="nc">Neo4jREST</span><span class="o">.</span><span class="n">setServer</span><span class="o">(</span><span class="s">"localhost"</span><span class="o">,</span> <span class="mi">7474</span><span class="o">,</span> <span class="s">"/db/data/"</span><span class="o">)</span>
+
+<span class="c1">// or with basic auth</span>
+<span class="nc">Neo4jREST</span><span class="o">.</span><span class="n">setServer</span><span class="o">(</span><span class="s">"localhost"</span><span class="o">,</span> <span class="mi">7474</span><span class="o">,</span> <span class="s">"/db/data/"</span><span class="o">,</span> <span class="s">"username"</span><span class="o">,</span> <span class="s">"password"</span><span class="o">)</span>
 </pre></div>
 
 <h3>Executing Cypher Queries</h3>
