@@ -6,11 +6,14 @@ import scala.collection.JavaConverters._
 import org.anormcypher.MayErr._
 
 object Neo4jREST {
-  // TODO support authentication
   var baseURL = "http://localhost:7474/db/data/"
+  var user = "";
+  var pass = "";
 
-  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/") = {
+  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/", username:String, password:String) = {
     baseURL = "http://" + host + ":" + port + path 
+    user = username;
+    pass = password;
   }
 
   def setURL(url:String) = {
@@ -18,13 +21,14 @@ object Neo4jREST {
   }
 
   def sendQuery(stmt: CypherStatement): Stream[CypherResultRow] = {
-    val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json", "X-Stream" -> "true", "User-Agent" -> "AnormCypher/0.2.1")
+    val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json", "X-Stream" -> "true", "User-Agent" -> "AnormCypher/0.3.0")
     cypherRequest.setBody(generate(stmt))
-    val result = Http(cypherRequest OK as.String).either
-    val strResult = result() match {
-      case Right(content)         => { /*println("Content: " + content);*/ content; }
-      case Left(content) => {throw new RuntimeException("error:" + content) }
-    }
+    val result = Http(cypherRequest.as_!(username,password))
+    val response = result()
+
+    val strResult = response.getResponseBody
+    if(response.getStatusCode != 200) throw new RuntimeException(strResult)
+    
     val cypherRESTResult = parse[CypherRESTResult](strResult)
     val metaDataItems = cypherRESTResult.columns.map {
       c => MetaDataItem(c, false, "String") 

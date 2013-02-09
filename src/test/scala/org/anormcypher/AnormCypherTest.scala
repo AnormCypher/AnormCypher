@@ -157,12 +157,13 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     val query = """
       START n=node(*)
       WHERE n.type! = 'Country'
-      RETURN n.indepYear? as indepYear;
+      RETURN n.indepYear? as indepYear
+      order by n.indepYear?
       """;
     val results = Cypher(query)().map {
       row => row[Option[Int]]("indepYear")
     }.toList
-    results should equal (List(None, None, Some(1789), None))
+    results should equal (List(Some(1789),None, None, None))
   }
 
   it should "fail on null fields if they're not Option" in {

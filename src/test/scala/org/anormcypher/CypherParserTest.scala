@@ -41,7 +41,7 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
 
   "CypherParser" should "be able to parse a node" in {
     case class Country(name:String, node:NeoNode)
-    val results = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n")().map {
+    val results = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n order by name desc")().map {
       row => Country(row[String]("name"), row[NeoNode]("n"))
     }.toList
     results.head.name should equal ("United States")
@@ -69,7 +69,13 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
 
   it should "be able to parse and flatten into a tuple" in {
     val result:List[(String,Int)] = 
-      Cypher("start n=node(*) where n.type! = 'Country' and has(n.name) and has(n.population) return n.name, n.population").as(
+      Cypher("""
+        start n=node(*) 
+        where n.type! = 'Country' and has(n.name) and has(n.population) 
+        return n.name, n.population 
+        order by n.name
+        """
+      ).as(
         str("n.name") ~ int("n.population") map(flatten) *
       ) 
     result should equal (List(("Germany",81726000), ("Monaco", 32000)))
