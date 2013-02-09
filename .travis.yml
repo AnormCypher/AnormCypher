@@ -4,8 +4,6 @@ scala:
 jdk:
   - oraclejdk7
   - oraclejdk6
-  - openjdk7
-  - openjdk6
 
 before_install:
   - export DJANGO_SETTINGS_MODULE="neo4django.tests.test_settings"
