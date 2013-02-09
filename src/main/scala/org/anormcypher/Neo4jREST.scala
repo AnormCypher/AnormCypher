@@ -23,7 +23,7 @@ object Neo4jREST {
   def sendQuery(stmt: CypherStatement): Stream[CypherResultRow] = {
     val cypherRequest = url(baseURL + "cypher").POST <:< Map("accept" -> "application/json", "content-type" -> "application/json", "X-Stream" -> "true", "User-Agent" -> "AnormCypher/0.3.0")
     cypherRequest.setBody(generate(stmt))
-    val result = Http(cypherRequest.as_!(username,password))
+    val result = Http(cypherRequest.as_!(user,pass))
     val response = result()
 
     val strResult = response.getResponseBody
