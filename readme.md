@@ -44,11 +44,15 @@ You'll probably notice that this usage is very close to Play's Anorm. That is th
 
 ### Configuring a server
 The default is localhost, but you can specify a special server when your app is starting via the `setServer` or `setURL` 
-options. Authentication and multi-server support will come soon.
+options.
 ``` Scala
 import org.anormcypher._
 
+// without auth
 Neo4jREST.setServer("localhost", 7474, "/db/data/")
+
+// or with basic auth
+Neo4jREST.setServer("localhost", 7474, "/db/data/", "username", "password")
 ```
 
 ### Executing Cypher Queries
