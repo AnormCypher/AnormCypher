@@ -21,3 +21,13 @@ libraryDependencies ++= Seq(
   "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
   "com.codahale" % "jerkson_2.9.1" % "0.5.0"
 )
+
+seq(lsSettings :_*)
+
+(LsKeys.tags in LsKeys.lsync) := Seq("anorm", "cypher", "neo4j", "neo")
+
+(externalResolvers in LsKeys.lsync) := Seq(
+  "anormcypher resolver" at "http://repo.anormcypher.org")
+
+(description in LsKeys.lsync) :=
+  "A Neo4j library modeled after Play's Anorm."
