@@ -16,7 +16,7 @@ Switch to an empty folder and create a build.sbt file with the following:
 resolvers += "anormcypher" at "http://repo.anormcypher.org/"
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.3.0"
+  "org.anormcypher" %% "anormcypher" % "0.3.1"
 )
 ```
 

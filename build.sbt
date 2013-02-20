@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.3.0"
+version := "0.3.1"
  
 publishMavenStyle := true
 
@@ -17,7 +17,7 @@ parallelExecution in Test := false
 crossScalaVersions := Seq("2.9.1", "2.9.2")
  
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "1.8" % "test",
+  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
   "com.codahale" % "jerkson_2.9.1" % "0.5.0"
 )

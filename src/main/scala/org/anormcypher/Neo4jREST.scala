@@ -10,11 +10,11 @@ object Neo4jREST {
   var user = "";
   var pass = "";
 
-  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/") = {
+  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/"):Unit = {
     setServer(host, port, path, "", "")
   }
 
-  def setServer(host:String="localhost", port:Int=7474, path:String="/db/data/", username:String, password:String) = {
+  def setServer(host:String, port:Int, path:String, username:String, password:String):Unit = {
     baseURL = "http://" + host + ":" + port + path 
     user = username;
     pass = password;
