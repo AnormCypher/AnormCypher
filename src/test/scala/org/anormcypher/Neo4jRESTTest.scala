@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 
 class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
 
-  override def beforeEach() = {
+  override def beforeEach() {
     Cypher("""
       CREATE (n {anormcyphername:'n'}), 
       (n2 {anormcyphername:'n2'}), 
@@ -25,7 +25,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
       """)()
   }
 
-  override def afterEach() = {
+  override def afterEach() {
     Cypher("START n=node(*) match n-[r?]-() where has(n.anormcyphername) DELETE n,r;")()
   }
 

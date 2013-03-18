@@ -159,7 +159,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       WHERE n.type! = 'Country'
       RETURN n.indepYear? as indepYear
       order by n.indepYear?
-      """;
+      """
     val results = Cypher(query)().map {
       row => row[Option[Int]]("indepYear")
     }.toList
@@ -171,7 +171,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       START n=node(*)
       WHERE n.type! = 'Country'
       RETURN n.indepYear? as indepYear;
-      """;
+      """
     evaluating { Cypher(query)().map {
       row => row[Int]("indepYear")
     } } should produce [RuntimeException]
