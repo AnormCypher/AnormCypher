@@ -12,9 +12,10 @@ scalaVersion := "2.10.1"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
-resolvers ++= Seq("codahale" at "http://repo.codahale.com/",
+resolvers ++= Seq(
   "Mandubian snapshots" at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/",
-  "Mandubian releases" at "https://github.com/mandubian/mandubian-mvn/raw/master/releases/")
+  "Mandubian releases" at "https://github.com/mandubian/mandubian-mvn/raw/master/releases/"
+  )
 
 parallelExecution in Test := false
 
