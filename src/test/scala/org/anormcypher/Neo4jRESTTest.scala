@@ -37,8 +37,8 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     }.head
     node.props("anormcyphername") should equal ("nprops")
     node.props("i") should equal (1)
-    node.props("arr").asInstanceOf[java.util.ArrayList[Int]].asScala should equal (Vector(1,2,3))
-    node.props("arrc").asInstanceOf[java.util.ArrayList[String]].asScala should equal (Vector("a","b","c"))
+    node.props("arr").asInstanceOf[Seq[Int]] should equal (Vector(1,2,3))
+    node.props("arrc").asInstanceOf[Seq[String]] should equal (Vector("a","b","c"))
   }
 
   it should "be able to retrieve collections of nodes" in {
@@ -66,8 +66,8 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     }.head
     rel.props("name") should equal ("r")
     rel.props("i") should equal (1)
-    rel.props("arr").asInstanceOf[java.util.ArrayList[Int]].asScala should equal (Vector(1,2,3))
-    rel.props("arrc").asInstanceOf[java.util.ArrayList[String]].asScala should equal (Vector("a","b","c"))
+    rel.props("arr").asInstanceOf[Seq[Int]] should equal (Vector(1,2,3))
+    rel.props("arrc").asInstanceOf[Seq[String]] should equal (Vector("a","b","c"))
   }
 
   it should "be able to retrieve collections of relationships" in {
