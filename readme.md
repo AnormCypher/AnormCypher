@@ -5,9 +5,13 @@ The goals of this library are to provide a great API to use Cypher, and it will 
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
 http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
-Integration tests currently run against neo4j-community-1.9.M04
+Integration tests currently run against neo4j-community-1.9.M05
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
+
+As of version 0.4, AnormCypher uses play-json and Scala 2.10. (thanks Julien for the PR!) I will push my refactoring ideas and Future support to 0.5.
+
+If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
 ## SBT Console Demo
 
@@ -16,7 +20,7 @@ Switch to an empty folder and create a build.sbt file with the following:
 resolvers += "anormcypher" at "http://repo.anormcypher.org/"
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.3.1"
+  "org.anormcypher" %% "anormcypher" % "0.4.0"
 )
 ```
 
@@ -394,10 +398,10 @@ $ spokenLanguages("FRA")
 ## Contributors
 * Wes Freeman: @wfreeman on github
 * Jason Jackson: @jasonjackson on github
+* Julien Sirocchi @sirocchj
 
 ## Thanks
-* The Play Framework team for providing the Anorm library, the basis for this library.
-* Coda Hale, for the Jerkson library
+* The Play Framework team for providing the Anorm library, the basis for this library. (and now the play-json module)
 * Databinder.net, for the Dispatch library
 * Neo Technologies for Neo4j!
 
