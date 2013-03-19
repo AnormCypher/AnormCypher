@@ -7,7 +7,7 @@ import org.anormcypher.CypherParser._
 import scala.collection.JavaConverters._
 
 class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
-  override def beforeEach() = {
+  override def beforeEach() {
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
@@ -30,7 +30,7 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
       """)()
   }
 
-  override def afterEach() = {
+  override def afterEach() {
     // delete the test data
     Cypher("""start n=node(*)
       match n-[r?]-m
@@ -47,7 +47,6 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
     results.head.name should equal ("United States")
     results.head.node.props should equal (Map("name" -> "United States", "type" -> "Country", "tag" -> "anormcyphertest", "code" -> "USA"))
   }
-
 
   it should "be able to parse into a single Long" in {
     val count: Long = Cypher("""
@@ -76,7 +75,7 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
         order by n.name
         """
       ).as(
-        str("n.name") ~ int("n.population") map(flatten) *
+        (str("n.name") ~ int("n.population")).map(flatten).*
       ) 
     result should equal (List(("Germany",81726000), ("Monaco", 32000)))
   }

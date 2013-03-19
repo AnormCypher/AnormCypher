@@ -1,5 +1,7 @@
 package org.anormcypher
 
+import scala.language.implicitConversions
+
 case class MayErr[+E, +A](e: Either[E, A]) {
 
   def flatMap[B, EE >: E](f: A => MayErr[EE, B]): MayErr[EE, B] = {

@@ -1,13 +1,14 @@
 package org.anormcypher
 
 import MayErr._
-import collection.TraversableOnce
-import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 abstract class CypherRequestError
+
 case class ColumnNotFound(columnName: String, possibilities: List[String]) extends CypherRequestError {
-  override def toString = columnName + " not found, available columns : " + possibilities.map { p => p.dropWhile(c => c == '.') }
-    .mkString(", ")
+  override def toString = columnName + " not found, available columns : " + possibilities.map {
+    p => p.dropWhile(_ == '.')
+  }.mkString(", ")
 }
 
 case class TypeDoesNotMatch(message: String) extends CypherRequestError
@@ -27,154 +28,186 @@ object Column {
   }
 
   def nonNull[A](transformer: ((Any, MetaDataItem) => MayErr[CypherRequestError, A])): Column[A] = Column[A] {
-    case (value, meta @ MetaDataItem(qualified, _, _)) =>
+    case (value, meta@MetaDataItem(qualified, _, _)) =>
       if (value != null) transformer(value, meta) else Left(UnexpectedNullableFound(qualified.toString))
   }
 
-  implicit def rowToString: Column[String] = {
-    Column.nonNull[String] { (value, meta) =>
-      val MetaDataItem(qualified, nullable, clazz) = meta
-      value match {
-        case string: String => Right(string)
-        case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to String for column " + qualified))
+  implicit def rowToString = Column.nonNull[String] {
+    (value, meta) => value match {
+      case s: String => Right(s)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to String for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToInt = Column.nonNull[Int] {
+    (value, meta) => value match {
+      case bd: BigDecimal if bd.isValidInt => Right(bd.toIntExact)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Int for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToDouble = Column.nonNull[Double] {
+    (value, meta) => value match {
+      case bd: BigDecimal => Right(bd.toDouble)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to Double for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToShort = Column.nonNull[Short] {
+    (value, meta) => value match {
+      case bd: BigDecimal if bd.isValidShort => Right(bd.toShortExact)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to Short for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToByte = Column.nonNull[Byte] {
+    (value, meta) => value match {
+      case bd: BigDecimal if bd.isValidByte => Right(bd.toByteExact)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to Byte for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToBoolean = Column.nonNull[Boolean] {
+    (value, meta) => value match {
+      case b: Boolean => Right(b)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Boolean for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToLong = Column.nonNull[Long] {
+    (value, meta) => value match {
+      case bd: BigDecimal if bd.isValidLong => Right(bd.toLongExact)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to Long for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToNeoNode = Column.nonNull[NeoNode] {
+    (value, meta) => value match {
+      case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) =>
+        Neo4jREST.asNode(msa.asInstanceOf[Map[String, Any]])
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to NeoNode for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToNeoRelationship: Column[NeoRelationship] = Column.nonNull {
+    (value, meta) => value match {
+      case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) =>
+        Neo4jREST.asRelationship(msa.asInstanceOf[Map[String, Any]])
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to NeoRelationship for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToBigInt = Column.nonNull[BigInt] {
+    (value, meta) => value match {
+      case bd: BigDecimal => bd.toBigIntExact() match {
+        case Some(bi) => Right(bi)
+        case None => Left(TypeDoesNotMatch(s"Cannot convert $bd:${bd.getClass} to BigInt for column ${meta.column}"))
       }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to BigInt for column ${meta.column}"))
     }
   }
 
-  implicit def rowToInt: Column[Int] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case int: Int => Right(int)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Int for column " + qualified))
+  implicit def rowToBigDecimal = Column.nonNull[BigDecimal] {
+    (value, meta) => value match {
+      case b: BigDecimal => Right(b)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to BigDecimal for column ${meta.column}"))
     }
   }
 
-  implicit def rowToDouble: Column[Double] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case d: Double => Right(d)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Double for column " + qualified))
+  implicit def rowToOption[A, B](implicit transformer: Column[A]): Column[Option[A]] = Column {
+    (value, meta) => if (value != null)
+      transformer(value, meta).map(Some(_))
+    else
+      (Right(None): MayErr[CypherRequestError, Option[A]])
+  }
+
+  import util.control.Exception.allCatch
+
+  def checkSeq[A : ClassTag](seq: Seq[Any], meta: MetaDataItem)(mapFun: (Any) => A): MayErr[CypherRequestError, Seq[A]] = {
+    allCatch.either {
+      seq.map(mapFun)
+    } fold(
+      throwable => Left(InnerTypeDoesNotMatch(s"Cannot convert $seq:${seq.getClass} to " +
+        s"Seq[${implicitly[ClassTag[A]].runtimeClass}] for column ${meta.column}: ${throwable.getLocalizedMessage}")),
+      result => Right(result)
+      )
+  }
+
+  implicit def rowToSeqString = Column.nonNull[Seq[String]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[String](xs, meta) {
+        case s: String => s
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to String")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[String] for column ${meta.column}"))
     }
   }
 
-  implicit def rowToShort: Column[Short] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case short: Short => Right(short)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Short for column " + qualified))
+  implicit def rowToSeqInt = Column.nonNull[Seq[Int]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[Int](xs, meta) {
+        case bd: BigDecimal if bd.isValidInt => bd.toIntExact
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Int")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Int] for column ${meta.column}"))
     }
   }
 
-  implicit def rowToByte: Column[Byte] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case byte: Byte => Right(byte)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Byte for column " + qualified))
+  implicit def rowToSeqLong = Column.nonNull[Seq[Long]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[Long](xs, meta) {
+        case bd: BigDecimal if bd.isValidLong => bd.toLongExact
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Long")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Long] for column ${meta.column}"))
     }
   }
 
-  implicit def rowToBoolean: Column[Boolean] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case bool: Boolean => Right(bool)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Boolean for column " + qualified))
+  implicit def rowToSeqDouble = Column.nonNull[Seq[Double]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[Double](xs, meta) {
+        case bd: BigDecimal => bd.toDouble
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Double")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Double] for column ${meta.column}"))
     }
   }
 
-  implicit def rowToLong: Column[Long] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case int: Int => Right(int: Long)
-      case long: Long => Right(long)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Long for column " + qualified))
-    }
-  }
-
-  implicit def rowToNeoNode: Column[NeoNode] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case node: java.util.LinkedHashMap[String,Any] => Neo4jREST.asNode(node)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to NeoNode for column " + qualified))
-    }
-  }
-
-  implicit def rowToNeoRelationship: Column[NeoRelationship] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case rel: java.util.LinkedHashMap[String,Any] => Neo4jREST.asRelationship(rel)
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to NeoRelationship for column " + qualified))
-    }
-  }
-  
-  implicit def rowToOption[T](implicit transformer: Column[T]): Column[Option[T]] = Column { (value, meta) =>
-    if (value != null) transformer(value, meta).map(Some(_)) else (Right(None): MayErr[CypherRequestError, Option[T]])
-  }
-
-  def toSeq[A](value:Any, qualified:String, converter: (Any) => A) = {
-    value match {
-      case list: java.util.ArrayList[Any] => 
-        try {
-          Right(list.asScala.map { 
-            e => e match { case s:Any => converter(s) }
-          }.toIndexedSeq)
-        } catch {
-          case e:Exception => Left(InnerTypeDoesNotMatch(e.getMessage))
+  implicit def rowToSeqNeoRelationship = Column.nonNull[Seq[NeoRelationship]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[NeoRelationship](xs, meta) {
+        case msa: Map[_,_] if msa.keys.forall(_.isInstanceOf[String]) => {
+          Neo4jREST.asRelationship(msa.asInstanceOf[Map[String, Any]]) fold(
+            error => throw new RuntimeException(error match {
+              case TypeDoesNotMatch(msg) => msg
+              case _ => ""
+            }),
+            value => value
+            )
         }
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to Seq[] for column " + qualified))
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to NeoRelationship")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[NeoRelationship] for column ${meta.column}"))
     }
   }
 
-  implicit def rowToSeqString: Column[Seq[String]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[String](value, qualified, (s:Any) => s.toString)
-  }
-
-  implicit def rowToSeqInt: Column[Seq[Int]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[Int](value, qualified, (s:Any) => s.toString.toInt)
-  }
-
-  implicit def rowToSeqLong: Column[Seq[Long]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[Long](value, qualified, (s:Any) => s.toString.toLong)
-  }
-
-  implicit def rowToSeqDouble: Column[Seq[Double]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[Double](value, qualified, (s:Any) => s.toString.toDouble)
-  }
-
-  implicit def rowToSeqNeoRelationship: Column[Seq[NeoRelationship]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[NeoRelationship](value, qualified, (r:Any) => Neo4jREST.asRelationship(r).get)
-  }
-
-  implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull { (value, meta) =>
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    toSeq[NeoNode](value, qualified, (n:Any) => Neo4jREST.asNode(n).get)
-  }
-
-  implicit def rowToBigInteger: Column[java.math.BigInteger] = Column.nonNull { (value, meta) =>
-    import java.math.BigInteger
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case bi: BigInteger => Right(bi)
-      case int: Int => Right(BigInteger.valueOf(int))
-      case long: Long => Right(BigInteger.valueOf(long))
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to BigInteger for column " + qualified))
+  implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[NeoNode](xs, meta) {
+        case msa: Map[_,_] if msa.keys.forall(_.isInstanceOf[String]) => {
+          Neo4jREST.asNode(msa.asInstanceOf[Map[String, Any]]) fold(
+            error => throw new RuntimeException(error match {
+              case TypeDoesNotMatch(msg) => msg
+              case _ => ""
+            }),
+            value => value
+            )
+        }
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to NeoNode")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[NeoNode] for column ${meta.column}"))
     }
   }
-
-  implicit def rowToBigDecimal: Column[java.math.BigDecimal] = Column.nonNull { (value, meta) =>
-    import java.math.BigDecimal
-    val MetaDataItem(qualified, nullable, clazz) = meta
-    value match {
-      case bi: java.math.BigDecimal => Right(bi)
-      case double: Double => Right(new java.math.BigDecimal(double))
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to BigDecimal for column " + qualified))
-    }
-  }
-
 }
 
 case class TupleFlattener[F](f: F)
@@ -226,22 +259,17 @@ object CypherRow {
 case class MetaDataItem(column: String, nullable: Boolean, clazz: String)
 
 case class MetaData(ms: List[MetaDataItem]) {
-  def get(columnName: String) = {
-    val columnUpper = columnName.toUpperCase()
-    dictionary.get(columnUpper)
-  }
+  def get(columnName: String) = dictionary.get(columnName.toUpperCase)
 
   private lazy val dictionary: Map[String, (String, Boolean, String)] =
-    ms.map(m => (m.column.toUpperCase(), (m.column, m.nullable, m.clazz))).toMap
+    ms.map(m => (m.column.toUpperCase, (m.column, m.nullable, m.clazz))).toMap
 
   lazy val columnCount = ms.size
 
-  lazy val availableColumns: List[String] = ms.flatMap(i => List(i.column))
+  lazy val availableColumns: List[String] = ms.map(_.column)
 }
 
 trait CypherRow {
-
-  import scala.reflect.Manifest
 
   protected[anormcypher] val data: List[Any]
   protected[anormcypher] val metaData: MetaData
@@ -262,12 +290,13 @@ trait CypherRow {
     case _ => Class.forName(t)
   }
 
-  private lazy val ColumnsDictionary: Map[String, Any] = metaData.ms.map(_.column.toUpperCase()).zip(data).toMap
+  private lazy val ColumnsDictionary: Map[String, Any] = metaData.ms.map(_.column.toUpperCase).zip(data).toMap
+
   private[anormcypher] def get1(a: String): MayErr[CypherRequestError, Any] = {
     for (
       meta <- metaData.get(a).toRight(ColumnNotFound(a, metaData.availableColumns));
       (column, nullable, clazz) = meta;
-      result <- ColumnsDictionary.get(column.toUpperCase()).toRight(ColumnNotFound(column, metaData.availableColumns))
+      result <- ColumnsDictionary.get(column.toUpperCase).toRight(ColumnNotFound(column, metaData.availableColumns))
     ) yield result
   }
 
@@ -275,10 +304,10 @@ trait CypherRow {
 
 }
 
-case class MockRow(metaData:MetaData, data: List[Any]) extends CypherRow
+case class MockRow(metaData: MetaData, data: List[Any]) extends CypherRow
 
-case class CypherResultRow(metaData:MetaData, data: List[Any]) extends CypherRow {
-  override def toString() = "CypherResultRow(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
+case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRow {
+  override def toString() = s"CypherResultRow(${metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ")})"
 }
 
 object Useful {
@@ -306,13 +335,13 @@ object Useful {
 
 }
 
-case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
+case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
+
   import Neo4jREST._
-  import CypherParser._
 
   def apply() = sendQuery(this)
 
-  def on(args:(String,Any) *) = this.copy(params=params ++ args)
+  def on(args: (String, Any)*) = this.copy(params = params ++ args)
 
   def execute(): Boolean = {
     var retVal = true
@@ -320,7 +349,7 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
       // throws an exception on a query that doesn't succeed.
       sendQuery(this)
     } catch {
-      case e:Exception => retVal = false
+      case e: Exception => retVal = false
     }
     retVal
   }
@@ -329,7 +358,7 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
     Cypher.as[T](parser, sendQuery(this))
   }
 
-  def list[A](rowParser: CypherRowParser[A])(): Seq[A] = as(rowParser *)
+  def list[A](rowParser: CypherRowParser[A])(): Seq[A] = as(rowParser.*)
 
   def single[A](rowParser: CypherRowParser[A])(): A = as(CypherResultSetParser.single(rowParser))
 
@@ -341,9 +370,8 @@ case class CypherStatement(query:String, params:Map[String, Any] = Map()) {
 
 object Cypher {
 
-  import CypherParser._
 
-  def apply(cypher:String) = CypherStatement(cypher)
+  def apply(cypher: String) = CypherStatement(cypher)
 
   def as[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
     parser(rs) match {
