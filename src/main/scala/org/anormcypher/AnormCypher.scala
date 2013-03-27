@@ -1,7 +1,9 @@
 package org.anormcypher
 
 import MayErr._
+import RestHelper._
 import scala.reflect.ClassTag
+import concurrent.{ExecutionContext, Future}
 
 abstract class CypherRequestError
 
@@ -12,9 +14,13 @@ case class ColumnNotFound(columnName: String, possibilities: List[String]) exten
 }
 
 case class TypeDoesNotMatch(message: String) extends CypherRequestError
+
 case class InnerTypeDoesNotMatch(message: String) extends CypherRequestError
+
 case class UnexpectedNullableFound(on: String) extends CypherRequestError
+
 case object NoColumnsInReturnedResult extends CypherRequestError
+
 case class CypherMappingError(msg: String) extends CypherRequestError
 
 trait Column[A] extends ((Any, MetaDataItem) => MayErr[CypherRequestError, A])
@@ -84,7 +90,7 @@ object Column {
   implicit def rowToNeoNode = Column.nonNull[NeoNode] {
     (value, meta) => value match {
       case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) =>
-        Neo4jREST.asNode(msa.asInstanceOf[Map[String, Any]])
+        asNode(msa.asInstanceOf[Map[String, Any]])
       case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to NeoNode for column ${meta.column}"))
     }
   }
@@ -92,7 +98,7 @@ object Column {
   implicit def rowToNeoRelationship: Column[NeoRelationship] = Column.nonNull {
     (value, meta) => value match {
       case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) =>
-        Neo4jREST.asRelationship(msa.asInstanceOf[Map[String, Any]])
+        asRelationship(msa.asInstanceOf[Map[String, Any]])
       case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to NeoRelationship for column ${meta.column}"))
     }
   }
@@ -123,7 +129,7 @@ object Column {
 
   import util.control.Exception.allCatch
 
-  def checkSeq[A : ClassTag](seq: Seq[Any], meta: MetaDataItem)(mapFun: (Any) => A): MayErr[CypherRequestError, Seq[A]] = {
+  def checkSeq[A: ClassTag](seq: Seq[Any], meta: MetaDataItem)(mapFun: (Any) => A): MayErr[CypherRequestError, Seq[A]] = {
     allCatch.either {
       seq.map(mapFun)
     } fold(
@@ -176,8 +182,8 @@ object Column {
   implicit def rowToSeqNeoRelationship = Column.nonNull[Seq[NeoRelationship]] {
     (value, meta) => value match {
       case xs: Seq[_] => checkSeq[NeoRelationship](xs, meta) {
-        case msa: Map[_,_] if msa.keys.forall(_.isInstanceOf[String]) => {
-          Neo4jREST.asRelationship(msa.asInstanceOf[Map[String, Any]]) fold(
+        case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) => {
+          asRelationship(msa.asInstanceOf[Map[String, Any]]) fold(
             error => throw new RuntimeException(error match {
               case TypeDoesNotMatch(msg) => msg
               case _ => ""
@@ -194,8 +200,8 @@ object Column {
   implicit def rowToSeqNeoNode: Column[Seq[NeoNode]] = Column.nonNull {
     (value, meta) => value match {
       case xs: Seq[_] => checkSeq[NeoNode](xs, meta) {
-        case msa: Map[_,_] if msa.keys.forall(_.isInstanceOf[String]) => {
-          Neo4jREST.asNode(msa.asInstanceOf[Map[String, Any]]) fold(
+        case msa: Map[_, _] if msa.keys.forall(_.isInstanceOf[String]) => {
+          asNode(msa.asInstanceOf[Map[String, Any]]) fold(
             error => throw new RuntimeException(error match {
               case TypeDoesNotMatch(msg) => msg
               case _ => ""
@@ -213,43 +219,63 @@ object Column {
 case class TupleFlattener[F](f: F)
 
 trait PriorityOne {
-  implicit def flattenerTo2[T1, T2]: TupleFlattener[(T1 ~ T2) => (T1, T2)] = TupleFlattener[(T1 ~ T2) => (T1, T2)] { case (t1 ~ t2) => (t1, t2) }
+  implicit def flattenerTo2[T1, T2]: TupleFlattener[(T1 ~ T2) => (T1, T2)] = TupleFlattener[(T1 ~ T2) => (T1, T2)] {
+    case (t1 ~ t2) => (t1, t2)
+  }
 }
 
 trait PriorityTwo extends PriorityOne {
-  implicit def flattenerTo3[T1, T2, T3]: TupleFlattener[(T1 ~ T2 ~ T3) => (T1, T2, T3)] = TupleFlattener[(T1 ~ T2 ~ T3) => (T1, T2, T3)] { case (t1 ~ t2 ~ t3) => (t1, t2, t3) }
+  implicit def flattenerTo3[T1, T2, T3]: TupleFlattener[(T1 ~ T2 ~ T3) => (T1, T2, T3)] = TupleFlattener[(T1 ~ T2 ~ T3) => (T1, T2, T3)] {
+    case (t1 ~ t2 ~ t3) => (t1, t2, t3)
+  }
 }
 
 trait PriorityThree extends PriorityTwo {
-  implicit def flattenerTo4[T1, T2, T3, T4]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4) => (T1, T2, T3, T4)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4) => (T1, T2, T3, T4)] { case (t1 ~ t2 ~ t3 ~ t4) => (t1, t2, t3, t4) }
+  implicit def flattenerTo4[T1, T2, T3, T4]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4) => (T1, T2, T3, T4)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4) => (T1, T2, T3, T4)] {
+    case (t1 ~ t2 ~ t3 ~ t4) => (t1, t2, t3, t4)
+  }
 }
 
 trait PriorityFour extends PriorityThree {
-  implicit def flattenerTo5[T1, T2, T3, T4, T5]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5) => (T1, T2, T3, T4, T5)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5) => (T1, T2, T3, T4, T5)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5) => (t1, t2, t3, t4, t5) }
+  implicit def flattenerTo5[T1, T2, T3, T4, T5]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5) => (T1, T2, T3, T4, T5)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5) => (T1, T2, T3, T4, T5)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5) => (t1, t2, t3, t4, t5)
+  }
 }
 
 trait PriorityFive extends PriorityFour {
-  implicit def flattenerTo6[T1, T2, T3, T4, T5, T6]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6) => (T1, T2, T3, T4, T5, T6)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6) => (T1, T2, T3, T4, T5, T6)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6) => (t1, t2, t3, t4, t5, t6) }
+  implicit def flattenerTo6[T1, T2, T3, T4, T5, T6]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6) => (T1, T2, T3, T4, T5, T6)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6) => (T1, T2, T3, T4, T5, T6)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6) => (t1, t2, t3, t4, t5, t6)
+  }
 }
 
 trait PrioritySix extends PriorityFive {
-  implicit def flattenerTo7[T1, T2, T3, T4, T5, T6, T7]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7) => (T1, T2, T3, T4, T5, T6, T7)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7) => (T1, T2, T3, T4, T5, T6, T7)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7) => (t1, t2, t3, t4, t5, t6, t7) }
+  implicit def flattenerTo7[T1, T2, T3, T4, T5, T6, T7]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7) => (T1, T2, T3, T4, T5, T6, T7)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7) => (T1, T2, T3, T4, T5, T6, T7)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7) => (t1, t2, t3, t4, t5, t6, t7)
+  }
 }
 
 trait PrioritySeven extends PrioritySix {
-  implicit def flattenerTo8[T1, T2, T3, T4, T5, T6, T7, T8]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8) => (T1, T2, T3, T4, T5, T6, T7, T8)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8) => (T1, T2, T3, T4, T5, T6, T7, T8)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8) => (t1, t2, t3, t4, t5, t6, t7, t8) }
+  implicit def flattenerTo8[T1, T2, T3, T4, T5, T6, T7, T8]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8) => (T1, T2, T3, T4, T5, T6, T7, T8)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8) => (T1, T2, T3, T4, T5, T6, T7, T8)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8) => (t1, t2, t3, t4, t5, t6, t7, t8)
+  }
 }
 
 trait PriorityEight extends PrioritySeven {
-  implicit def flattenerTo9[T1, T2, T3, T4, T5, T6, T7, T8, T9]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9) => (T1, T2, T3, T4, T5, T6, T7, T8, T9)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9) => (T1, T2, T3, T4, T5, T6, T7, T8, T9)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9) => (t1, t2, t3, t4, t5, t6, t7, t8, t9) }
+  implicit def flattenerTo9[T1, T2, T3, T4, T5, T6, T7, T8, T9]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9) => (T1, T2, T3, T4, T5, T6, T7, T8, T9)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9) => (T1, T2, T3, T4, T5, T6, T7, T8, T9)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9) => (t1, t2, t3, t4, t5, t6, t7, t8, t9)
+  }
 }
 
 trait PriorityNine extends PriorityEight {
-  implicit def flattenerTo10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9 ~ t10) => (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10) }
+  implicit def flattenerTo10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9 ~ t10) => (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)
+  }
 }
 
 object TupleFlattener extends PriorityNine {
-  implicit def flattenerTo11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] { case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9 ~ t10 ~ t11) => (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11) }
+  implicit def flattenerTo11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]: TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] = TupleFlattener[(T1 ~ T2 ~ T3 ~ T4 ~ T5 ~ T6 ~ T7 ~ T8 ~ T9 ~ T10 ~ T11) => (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)] {
+    case (t1 ~ t2 ~ t3 ~ t4 ~ t5 ~ t6 ~ t7 ~ t8 ~ t9 ~ t10 ~ t11) => (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+  }
 }
 
 object CypherRow {
@@ -335,54 +361,50 @@ object Useful {
 
 }
 
-case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
+case class CypherStatement(query: String, params: Map[String, Any] = Map())(implicit val ec: ExecutionContext)
 
-  import Neo4jREST._
+trait AnormCypher {
+  self: Neo4j =>
 
-  def apply() = sendQuery(this)
+  implicit class RichCypher(underlying: CypherStatement) extends AnyRef {
 
-  def on(args: (String, Any)*) = this.copy(params = params ++ args)
+    import underlying.ec
 
-  def execute(): Boolean = {
-    var retVal = true
-    try {
+    def apply() = sendQuery(underlying)
+
+    def on(args: (String, Any)*): RichCypher = underlying.copy(params = underlying.params ++ args)
+
+    def execute(): Future[Boolean] = {
       // throws an exception on a query that doesn't succeed.
-      sendQuery(this)
-    } catch {
-      case e: Exception => retVal = false
+      sendQuery(underlying).map(_ => true).recover {
+        case _ => false
+      }
     }
-    retVal
+
+    def as[T](parser: CypherResultSetParser[T]): Future[T] = {
+      sendQuery(underlying) map {
+        stream => parser(stream) match {
+          case Success(a) => a
+          case Error(e) => sys.error(e.toString)
+        }
+      }
+    }
+
+    def list[A](rowParser: CypherRowParser[A])(): Future[Seq[A]] = as(rowParser.*)
+
+    def single[A](rowParser: CypherRowParser[A])(): Future[A] = as(CypherResultSetParser.single(rowParser))
+
+    def singleOpt[A](rowParser: CypherRowParser[A])(): Future[Option[A]] = as(CypherResultSetParser.singleOpt(rowParser))
+
+    def parse[T](parser: CypherResultSetParser[T])(): Future[T] = sendQuery(underlying) map {
+      stream => parser(stream) match {
+        case Success(a) => a
+        case Error(e) => sys.error(e.toString)
+      }
+    }
   }
 
-  def as[T](parser: CypherResultSetParser[T]): T = {
-    Cypher.as[T](parser, sendQuery(this))
-  }
-
-  def list[A](rowParser: CypherRowParser[A])(): Seq[A] = as(rowParser.*)
-
-  def single[A](rowParser: CypherRowParser[A])(): A = as(CypherResultSetParser.single(rowParser))
-
-  def singleOpt[A](rowParser: CypherRowParser[A])(): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
-
-  def parse[T](parser: CypherResultSetParser[T])(): T = Cypher.parse[T](parser, sendQuery(this))
-}
-
-
-object Cypher {
-
-
-  def apply(cypher: String) = CypherStatement(cypher)
-
-  def as[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
-    parser(rs) match {
-      case Success(a) => a
-      case Error(e) => sys.error(e.toString)
-    }
-
-  def parse[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
-    parser(rs) match {
-      case Success(a) => a
-      case Error(e) => sys.error(e.toString)
-    }
+  def Cypher(cypher: String, ec: ExecutionContext = ExecutionContext.Implicits.global): RichCypher =
+    CypherStatement(cypher)(ec)
 
 }

@@ -1,36 +1,62 @@
 package org.anormcypher
 
-import dispatch._
-import org.anormcypher.MayErr._
-import play.api.libs.json.Json._
+import dispatch.{host => h, _}
 import play.api.libs.json._
+import play.api.libs.json.Json._
+import scala.language.implicitConversions
+import scala.util.Try
 
-object Neo4jREST {
+sealed trait Neo4j {
+  def sendQuery(cypherStatement: CypherStatement): concurrent.Future[Stream[CypherResultRow]]
+}
 
-  val headers = Map(
-    "accept" -> "application/json",
-    "content-type" -> "application/json",
+trait Neo4jRESTConfig {
+  def host: String = "localhost"
+
+  def port: Int = 7474
+
+  def db: String = "db/data"
+
+  def username: String = ""
+
+  def password: String = ""
+}
+
+trait Neo4jREST extends Neo4j {
+  self: Neo4jRESTConfig =>
+
+  trait EnhancedUrlVerbs extends RequestVerbs {
+    def ^/(segment: String) = {
+      val uri = RawUri(subject.build.getUrl)
+      val cleanSegment = if (segment.startsWith("/")) segment.substring(1) else segment
+      val rawPath = uri.path.orElse(Some("/")).map {
+        case u if u.endsWith("/") => u concat cleanSegment
+        case u => s"$u/$cleanSegment"
+      }
+      subject.setUrl(uri.copy(path = rawPath).toString())
+    }
+  }
+
+  class EnhancedRequestVerbs(val subject: com.ning.http.client.RequestBuilder) extends EnhancedUrlVerbs
+
+  private val headers = Map(
+    "Accept" -> "application/json",
+    "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.4.0"
+    "User-Agent" -> "AnormCypher/0.5.0"
   )
 
-  var baseURL = "http://localhost:7474/db/data/"
-  var user = ""
-  var pass = ""
-
-  def setServer(host: String = "localhost", port: Int = 7474, path: String = "/db/data/") {
-    setServer(host, port, path, "", "")
+  val http = Http.configure {
+    builder => builder.setCompressionEnabled(true)
+      .setAllowPoolingConnection(true)
+      .setRequestTimeoutInMs(5000)
+      .setMaximumConnectionsTotal(23)
   }
 
-  def setServer(host: String, port: Int, path: String, username: String, password: String) {
-    baseURL = "http://" + host + ":" + port + path
-    user = username
-    pass = password
-  }
+  implicit def requestBuilder2EnhancedRequestVerbs(rb: com.ning.http.client.RequestBuilder) =
+    new EnhancedRequestVerbs(rb)
 
-  def setURL(url: String) {
-    baseURL = url
-  }
+  val cypherRequest = (h(host, port) ^/ db) / "cypher" <:< headers as_!(username, password)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {
@@ -44,11 +70,13 @@ object Neo4jREST {
       case (k, JsArray(ss)) if (ss.forall(_.isInstanceOf[JsString])) =>
         k -> ss.asInstanceOf[Seq[JsString]].map(_.value)
       case (k, JsObject(o)) => k -> read(o)
-      case _ => throw new RuntimeException(s"unsupported type")
+      case x => throw new RuntimeException(s"unsupported type $x")
     }).toMap
 
     def reads(json: JsValue) = json match {
-      case JsObject(xs) => JsSuccess(read(xs))
+      case JsObject(xs) => Try(read(xs)).map(JsSuccess(_)).recover {
+        case e: RuntimeException => JsError(e.getLocalizedMessage)
+      }.get
       case x => JsError(s"json not of type Map[String, Any]: $x")
     }
 
@@ -103,37 +131,42 @@ object Neo4jREST {
       case JsArray(arr) => read(arr)
       case JsNull => null
       case o: JsObject => o.as[Map[String, Any]]
-      case _ => throw new RuntimeException(s"unsupported type")
+      case x => throw new RuntimeException(s"unsupported type $x")
     }
 
     def reads(json: JsValue) = json match {
-      case JsArray(xs) => JsSuccess(read(xs))
+      case JsArray(xs) => Try(read(xs)).map(JsSuccess(_)).recover {
+        case e: RuntimeException => JsError(e.getLocalizedMessage)
+      }.get
       case _ => JsError("json not of type Seq[Any]")
     }
   }
 
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
-  def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
-    val cypherRequest = url(baseURL + "cypher").POST <:< headers
-    cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement)))
-    val result = Http(cypherRequest.as_!(user, pass))
-    //TODO: check why we are blocking here...
-    val response = result()
-
-    val strResult = response.getResponseBody
-    if (response.getStatusCode != 200) throw new RuntimeException(strResult)
-
-    val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
-    val metaDataItems = cypherRESTResult.columns.map {
-      c => MetaDataItem(c, false, "String")
-    }.toList
-    val metaData = MetaData(metaDataItems)
-    val data = cypherRESTResult.data.map {
-      d => CypherResultRow(metaData, d.toList)
-    }.toStream
-    data
+  def sendQuery(cypherStatement: CypherStatement): concurrent.Future[Stream[CypherResultRow]] = {
+    val p = concurrent.Promise[Stream[CypherResultRow]]()
+    http {
+      (cypherRequest << Json.prettyPrint(Json.toJson(cypherStatement))) OK as.String
+    } onComplete {
+      either => either.fold(
+        throwable => p failure throwable,
+        res => Json.fromJson[CypherRESTResult](Json.parse(res)).fold(
+          errors => p failure new RuntimeException(s"unable to parse Neo4j's JSON response"),
+          cypherResult => {
+            val metadata = MetaData(cypherResult.columns.map(MetaDataItem(_, false, "String")).toList)
+            p complete Try {
+              cypherResult.data.map(d => CypherResultRow(metadata, d.toList)).toStream
+            }
+          }
+        )
+      )
+    }
+    p.future
   }
+}
+
+object RestHelper {
 
   object IdURLExtractor {
     def unapply(s: String) = s.lastIndexOf('/') match {
