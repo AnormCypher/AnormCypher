@@ -22,7 +22,7 @@ parallelExecution in Test := false
  
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "1.9.1" % "test",
-  "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
+  "net.databinder.dispatch" %% "dispatch-core" % "0.10.0",
   "play" %% "play-json" % "2.2-SNAPSHOT"
 )
 

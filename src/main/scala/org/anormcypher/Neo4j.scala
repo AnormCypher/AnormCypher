@@ -3,11 +3,12 @@ package org.anormcypher
 import dispatch.{host => h, _}
 import play.api.libs.json._
 import play.api.libs.json.Json._
+import scala.concurrent.Future
 import scala.language.implicitConversions
 import scala.util.Try
 
 sealed trait Neo4j {
-  def sendQuery(cypherStatement: CypherStatement): concurrent.Future[Stream[CypherResultRow]]
+  def sendQuery(cypherStatement: CypherStatement): Future[Stream[CypherResultRow]]
 }
 
 trait Neo4jRESTConfig {
@@ -144,25 +145,18 @@ trait Neo4jREST extends Neo4j {
 
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
-  def sendQuery(cypherStatement: CypherStatement): concurrent.Future[Stream[CypherResultRow]] = {
-    val p = concurrent.Promise[Stream[CypherResultRow]]()
-    http {
-      (cypherRequest << Json.prettyPrint(Json.toJson(cypherStatement))) OK as.String
-    } onComplete {
-      either => either.fold(
-        throwable => p failure throwable,
-        res => Json.fromJson[CypherRESTResult](Json.parse(res)).fold(
-          errors => p failure new RuntimeException(s"unable to parse Neo4j's JSON response"),
-          cypherResult => {
-            val metadata = MetaData(cypherResult.columns.map(MetaDataItem(_, false, "String")).toList)
-            p complete Try {
-              cypherResult.data.map(d => CypherResultRow(metadata, d.toList)).toStream
-            }
-          }
-        )
-      )
-    }
-    p.future
+  import concurrent.ExecutionContext.Implicits.global
+
+  def sendQuery(cypherStatement: CypherStatement): Future[Stream[CypherResultRow]] = http {
+    (cypherRequest << Json.prettyPrint(Json.toJson(cypherStatement))) OK as.String
+  } map {
+    res => Json.fromJson[CypherRESTResult](Json.parse(res)).fold(
+      errors => throw new RuntimeException(s"unable to parse Neo4j's JSON response"),
+      cypherResult => {
+        val metadata = MetaData(cypherResult.columns.map(MetaDataItem(_, false, "String")).toList)
+        cypherResult.data.map(d => CypherResultRow(metadata, d.toList)).toStream
+      }
+    )
   }
 }
 
