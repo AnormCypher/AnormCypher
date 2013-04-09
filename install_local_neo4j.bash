@@ -1,6 +1,6 @@
 #!/bin/bash
 #http://dist.neo4j.org/neo4j-community-1.9.M03-unix.tar.gz
-VERSION="1.9.M05"
+VERSION="2.0.0-M01"
 DIR="neo4j-community-$VERSION"
 FILE="$DIR-unix.tar.gz"
 SERVER_PROPERTIES_FILE="lib/neo4j/conf/neo4j-server.properties"
