@@ -133,19 +133,3 @@ object CypherRest extends CypherRest
 object CypherRestBatch extends CypherRest with BatchSupport
 
 object Cypher extends EmbeddedNeo with CypherSupport
-
-object Main extends App {
-
-  import CypherRestBatch._
-
-  case class SomeClass(x: Seq[Int], y: String)
-
-  implicit val someClassWrites = json.writes[SomeClass]
-
-  val a = cypher("start n=node({id}) set n.someprop = {prop} return n").on("id" → 23).on("prop" → "aa")
-  val b = cypher("create (n {props}) return n").on("props" → SomeClass(23 :: 24 :: Nil, "dunno"))
-  println(s"a: ${json.prettyPrint(a.serialize)}")
-  println(s"b: ${json.prettyPrint(b.serialize)}")
-  val batch = build(a, b)
-  println(s"batch: ${json.prettyPrint(batch.serialize)}")
-}
