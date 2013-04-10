@@ -110,11 +110,12 @@ trait BatchSupport {
   def build[A <: CypherValue](cypherRequests: CypherRequest[A]*) = BatchCypherRequest(cypherRequests)
 
   implicit val batchCypherRequestWrites = new Writes[BatchCypherRequest[JsonCypherValue]] {
-    def writes(o: BatchCypherRequest[JsonCypherValue]) = JsArray(o.queries.map {
-      req ⇒ obj(
+    def writes(o: BatchCypherRequest[JsonCypherValue]) = JsArray(o.queries.zipWithIndex.map {
+      case (req, index) ⇒ obj(
         "method" → "POST",
         "to" → "/cypher",
-        "body" → toJson(req)
+        "body" → toJson(req),
+        "id" → index
       )
     }.toSeq)
   }
