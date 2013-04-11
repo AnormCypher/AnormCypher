@@ -10,10 +10,7 @@ class NewApiSpec extends CommonTest {
     val q = cypher(query)
     q.query should equal(query)
     q.params should equal(Seq.empty)
-    q.serialize should equal(Map(
-      "query" → query,
-      "params" → Map.empty
-    ))
+    q.serialize should equal(query)
   }
 
   it should "be able to create parametrized Cypher query against embedded" in {
@@ -22,12 +19,7 @@ class NewApiSpec extends CommonTest {
     val q = cypher(query).on("id", 0)
     q.query should equal(query)
     q.params.map(t2 ⇒ t2._1 → t2._2.value) should equal(Seq("id" → 0))
-    q.serialize should equal(Map(
-      "query" → query,
-      "params" → Map(
-        "id" → 0
-      )
-    ))
+    q.serialize should equal(query → Map("id" → 0))
   }
 
   it should "be able to create simple Cypher query against rest" in {
