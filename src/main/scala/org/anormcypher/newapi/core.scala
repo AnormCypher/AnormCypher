@@ -4,20 +4,15 @@ import language.implicitConversions
 
 trait CypherValue
 
-trait CypherValueConverter[A, B <: CypherValue] {
-  def map(obj: A): B
-}
+trait CypherValueConverter[A, B <: CypherValue] extends (A ⇒ B)
 
-trait CypherRequestConverter[A <: CypherValue, B] {
-  def map(obj: CypherRequest[A]): B
-}
+trait CypherRequestConverter[A <: CypherValue, B] extends (CypherRequest[A] ⇒ B)
 
 case class CypherRequest[A <: CypherValue](query: String, params: Seq[(String, A)] = Seq.empty) {
-  def on[B, C >: A <: CypherValue](t2: (String, B))(implicit ev: CypherValueConverter[B, C]) =
-    CypherRequest(query, params :+ ((t2._1, ev.map(t2._2))))
+  def on[B, C >: A <: CypherValue](pair: (String, B))(implicit f: CypherValueConverter[B, C]) =
+    CypherRequest(query, params :+ (pair._1 → f(pair._2)))
 
-  def serialize[B](implicit ev: CypherRequestConverter[A, B]) =
-    ev.map(this)
+  def serialize[B](implicit f: CypherRequestConverter[A, B]) = f(this)
 }
 
 trait CypherSupport {
@@ -35,17 +30,17 @@ trait EmbeddedNeo {
   }
 
   implicit def any2EmbeddedCypherValueConverter[A] = new CypherValueConverter[A, EmbeddedCypherValue] {
-    def map(obj: A) = EmbeddedCypherValueImpl(obj)
+    def apply(obj: A) = EmbeddedCypherValueImpl(obj)
   }
 
   implicit val noParamsCypherRequestConverter = new CypherRequestConverter[Nothing, Map[String, Any]] {
-    def map(obj: CypherRequest[Nothing]) = Map(
+    def apply(obj: CypherRequest[Nothing]) = Map(
       "query" → obj.query,
       "params" → Map.empty
     )
   }
   implicit val cypherRequestConverter = new CypherRequestConverter[EmbeddedCypherValue, Map[String, Any]] {
-    def map(obj: CypherRequest[EmbeddedCypherValue]) = Map(
+    def apply(obj: CypherRequest[EmbeddedCypherValue]) = Map(
       "query" → obj.query,
       "params" → obj.params.groupBy(_._1).mapValues(seq ⇒ seq.map(_._2.value).head)
     )
@@ -66,7 +61,7 @@ trait RestNeo {
   }
 
   implicit def any2JsonCypherValueConverter[A: Writes] = new CypherValueConverter[A, JsonCypherValue] {
-    def map(obj: A) = JsonCypherValueImpl(obj)
+    def apply(obj: A) = JsonCypherValueImpl(obj)
   }
 
   implicit val noParamsCypherRequestWrites = new Writes[CypherRequest[Nothing]] {
@@ -85,10 +80,10 @@ trait RestNeo {
   }
 
   implicit val noParamsCypherRequestConverter = new CypherRequestConverter[Nothing, JsValue] {
-    def map(obj: CypherRequest[Nothing]) = toJson(obj)
+    def apply(obj: CypherRequest[Nothing]) = toJson(obj)
   }
   implicit val cypherRequestConverter = new CypherRequestConverter[JsonCypherValue, JsValue] {
-    def map(obj: CypherRequest[JsonCypherValue]) = toJson(obj)
+    def apply(obj: CypherRequest[JsonCypherValue]) = toJson(obj)
   }
 }
 
@@ -98,13 +93,10 @@ trait BatchSupport {
   import play.api.libs.json.Json._
   import play.api.libs.json._
 
-  trait BatchCypherRequestConverter[A <: CypherValue, B] {
-    def map(obj: BatchCypherRequest[A]): B
-  }
+  trait BatchCypherRequestConverter[A <: CypherValue, B] extends (BatchCypherRequest[A] ⇒ B)
 
   case class BatchCypherRequest[A <: CypherValue](queries: Seq[CypherRequest[A]]) {
-    def serialize[B](implicit ev: BatchCypherRequestConverter[A, B]) =
-      ev.map(this)
+    def serialize[B](implicit f: BatchCypherRequestConverter[A, B]) = f(this)
   }
 
   def build[A <: CypherValue](cypherRequests: CypherRequest[A]*) = BatchCypherRequest(cypherRequests)
@@ -121,7 +113,7 @@ trait BatchSupport {
   }
 
   implicit val batchCypherRequestConverter = new BatchCypherRequestConverter[JsonCypherValue, JsValue] {
-    def map(obj: BatchCypherRequest[JsonCypherValue]) = toJson(obj)
+    def apply(obj: BatchCypherRequest[JsonCypherValue]) = toJson(obj)
   }
 }
 
