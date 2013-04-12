@@ -45,31 +45,3 @@ trait CypherSupport {
       def apply(a: CypherResponse[A]) = f apply a
     }
 }
-
-trait MapSupport {
-  self: CypherSupport ⇒
-
-  sealed trait EmbeddedCypherValue extends CypherValue {
-    def value: Any
-  }
-
-  implicit def any2cv[A: ClassTag] = new CypherValueConverter[A, EmbeddedCypherValue] {
-    val map = (a: A) ⇒ new EmbeddedCypherValue {
-      val value = identity(a)
-    }
-    val comap = (ecv: EmbeddedCypherValue) => ecv.value match {
-      case x: A ⇒ Some(x)
-      case _ ⇒ None
-    }
-  }
-
-  implicit val cr0p2query = new CypherRequestConverter[Nothing, String] {
-    def apply(obj: CypherRequest[Nothing]) = obj.query
-  }
-  implicit val cr2queryAndParams: CypherRequestConverter[EmbeddedCypherValue, (String, Map[String, Any])] =
-    (obj: CypherRequest[EmbeddedCypherValue]) ⇒
-      obj.query → obj.params.groupBy(_._1).mapValues(seq ⇒ seq.map(_._2.value).head
-      )
-}
-
-object CypherEmbedded extends CypherSupport with MapSupport

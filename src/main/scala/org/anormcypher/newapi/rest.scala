@@ -8,14 +8,14 @@ trait JsonSupport {
   val json = play.api.libs.json.Json
 
   sealed trait JsonCypherValue extends CypherValue {
-    def value: JsValue
+    def underlying: JsValue
   }
 
   implicit def any2JsonCypherValueConverter[A: Format] = new CypherValueConverter[A, JsonCypherValue] {
     val map = (a: A) => new JsonCypherValue {
-      val value = implicitly[Format[A]].writes(a)
+      val underlying = implicitly[Format[A]].writes(a)
     }
-    val comap = (jcv: JsonCypherValue) => implicitly[Format[A]].reads(jcv.value).asOpt
+    val comap = (jcv: JsonCypherValue) => implicitly[Format[A]].reads(jcv.underlying).asOpt
   }
 
   implicit val cRequestNoParamsWrites = new Writes[CypherRequest[Nothing]] {
@@ -28,7 +28,7 @@ trait JsonSupport {
     def writes(o: CypherRequest[JsonCypherValue]) = json.obj(
       "query" → o.query,
       "params" → JsObject(o.params.map {
-        case (k, v) ⇒ k → v.value
+        case (k, v) ⇒ k → v.underlying
       }.toList)
     )
   }
