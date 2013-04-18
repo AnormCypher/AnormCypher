@@ -1,7 +1,5 @@
 package org.anormcypher.newapi
 
-import play.api.libs.json.JsValue
-
 trait JsonSupport {
 
   import play.api.libs.json.{Json ⇒ _, _}

@@ -1,7 +1,6 @@
 package org.anormcypher.newapi
 
 import language.higherKinds
-import language.implicitConversions
 
 trait Value
 
