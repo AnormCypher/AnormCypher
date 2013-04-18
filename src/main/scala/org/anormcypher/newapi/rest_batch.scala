@@ -1,20 +1,16 @@
 package org.anormcypher.newapi
 
 trait BatchSupport {
-  self: JsonSupport ⇒
+  self: CypherSupport with JsonSupport with CypherRestSupport ⇒
 
   import play.api.libs.json.{Json ⇒ _, _}
 
-  trait BatchCypherRequestConverter[A <: CypherValue, B] extends (BatchCypherRequest[A] ⇒ B)
+  case class BatchCypherRequest[A](queries: Seq[CypherRequest[A]])
 
-  case class BatchCypherRequest[A <: CypherValue](queries: Seq[CypherRequest[A]]) {
-    def serialize[B](implicit f: BatchCypherRequestConverter[A, B]) = f(this)
-  }
+  def build[A <: JsonValue](cypherRequests: CypherRequest[A]*) = BatchCypherRequest(cypherRequests)
 
-  def build[A <: CypherValue](cypherRequests: CypherRequest[A]*) = BatchCypherRequest(cypherRequests)
-
-  implicit val bcrWrites = new Writes[BatchCypherRequest[JsonCypherValue]] {
-    def writes(bcr: BatchCypherRequest[JsonCypherValue]) = JsArray(bcr.queries.zipWithIndex.map {
+  implicit val bcrWrites = new Writes[BatchCypherRequest[JsonValue]] {
+    def writes(bcr: BatchCypherRequest[JsonValue]) = JsArray(bcr.queries.zipWithIndex.map {
       case (req, index) ⇒ json.obj(
         "method" → "POST",
         "to" → "/cypher",
@@ -23,8 +19,8 @@ trait BatchSupport {
       )
     }.toSeq)
   }
-  implicit val bcr2json = new BatchCypherRequestConverter[JsonCypherValue, JsValue] {
-    def apply(obj: BatchCypherRequest[JsonCypherValue]) = json.toJson(obj)
+  implicit val bcr2json = new Converter[JsonValue, BatchCypherRequest, JsValue] {
+    def apply(obj: BatchCypherRequest[JsonValue]) = json.toJson(obj)
   }
 }
 
