@@ -59,5 +59,5 @@ trait RestInvoker {
       .setMaximumConnectionsTotal(23)
   }
 
-  val endpoint = (h(host, port) ^/ db) / "cypher" <:< headers as_!(username, password)
+  val neo4jEndpoint = (h(host, port) ^/ db) <:< headers as_!(username, password)
 }

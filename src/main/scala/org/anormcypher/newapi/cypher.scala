@@ -65,7 +65,7 @@ trait CypherRest extends CypherSupport with JsonSupport with CypherRestSupport w
 
   implicit class CypherRestInvoker(cypherRequest: CypherRequest[JsonValue]) {
     def execute[A](implicit converter: Converter[JsonValue, CypherRequest, JsValue]) = http {
-      (endpoint << json.prettyPrint(converter(cypherRequest))) OK as.String
+      (neo4jEndpoint / "cypher" << json.prettyPrint(converter(cypherRequest))) OK as.String
     }
   }
 
