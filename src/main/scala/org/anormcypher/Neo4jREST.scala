@@ -17,6 +17,7 @@ object Neo4jREST {
   var baseURL = "http://localhost:7474/db/data/"
   var user = ""
   var pass = ""
+  var cypherendpoint = "cypher"
 
   def setServer(host: String = "localhost", port: Int = 7474, path: String = "/db/data/") {
     setServer(host, port, path, "", "")
@@ -26,6 +27,10 @@ object Neo4jREST {
     baseURL = "http://" + host + ":" + port + path
     user = username
     pass = password
+  }
+  
+  def setCypherEndpoint(endpoint: String) {
+    cypherendpoint = endpoint;
   }
 
   def setURL(url: String) {
@@ -115,7 +120,7 @@ object Neo4jREST {
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
   def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
-    val cypherRequest = url(baseURL + "cypher").POST <:< headers
+    val cypherRequest = url(baseURL + cypherendpoint).POST <:< headers
     cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement)))
     val result = Http(cypherRequest.as_!(user, pass))
     //TODO: check why we are blocking here...
