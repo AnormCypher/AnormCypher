@@ -120,7 +120,7 @@ object Neo4jREST {
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
   def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
-    val cypherRequest = url(baseURL + cypherendpoint).POST <:< headers
+    val cypherRequest = url(baseURL + cypherEndpoint).POST <:< headers
     cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement)))
     val result = Http(cypherRequest.as_!(user, pass))
     //TODO: check why we are blocking here...
