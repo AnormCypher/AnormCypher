@@ -17,10 +17,15 @@ If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
 Switch to an empty folder and create a build.sbt file with the following:
 ``` Scala
-resolvers += "anormcypher" at "http://repo.anormcypher.org/"
+resolvers ++= Seq(
+  "anormcypher" at "http://repo.anormcypher.org/",
+  "Mandubian repository snapshots" at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/",
+  "Mandubian repository releases" at "https://github.com/mandubian/mandubian-mvn/raw/master/releases/"
+)
+
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.4.0"
+  "org.anormcypher" %% "anormcypher" % "0.4.1"
 )
 ```
 
@@ -58,6 +63,10 @@ Neo4jREST.setServer("localhost", 7474, "/db/data/")
 // or with basic auth
 Neo4jREST.setServer("localhost", 7474, "/db/data/", "username", "password")
 ```
+
+For 1.8.x or older, you may need to specify a cypher endpoint like so (the default goes to the 1.9/2.0 style endpoint):
+
+Neo4jREST.setServer("localhost", 7474, "/db/data/", "ext/CypherPlugin/graphdb/execute_query")
 
 ### Executing Cypher Queries
 
