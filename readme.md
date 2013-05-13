@@ -408,6 +408,7 @@ $ spokenLanguages("FRA")
 * Wes Freeman: @wfreeman on github
 * Jason Jackson: @jasonjackson on github
 * Julien Sirocchi: @sirocchj on github
+* Pieter-Jan Van Aeken: @PieterJanVanAeken on github
 
 ## Thanks
 * The Play Framework team for providing the Anorm library, the basis for this library. (and now the play-json module)
