@@ -1,6 +1,7 @@
 package org.anormcypher
 
 import language.implicitConversions
+import scala.concurrent._
 
 trait CypherSupport {
 
@@ -44,6 +45,7 @@ trait CypherEmbeddedSupport {
   import org.neo4j.graphdb.GraphDatabaseService
   import org.neo4j.cypher.ExecutionEngine
   import scala.collection.JavaConversions._
+  import ExecutionContext.Implicits.global
 
   var graphDb:GraphDatabaseService = null
   var executionEngine:ExecutionEngine = null
@@ -56,8 +58,21 @@ trait CypherEmbeddedSupport {
   def shutdown = graphDb.shutdown
 
   implicit class CypherEmbeddedInvoker(cypherRequest: CypherRequest[IdentityValue]) {
-    def execute[A]():Stream[Map[String,Any]] = 
-      executionEngine.execute(cypherRequest.query, Map(cypherRequest.params: _*)).toStream
+    def execute[A]():Future[Boolean] = 
+      future {
+        try {
+          executionEngine.execute(cypherRequest.query, Map(cypherRequest.params: _*))
+          true
+        } catch {
+          case _:Throwable => false
+        }
+
+      }
+
+    def apply[A]():Future[Stream[Map[String,Any]]] = 
+      future {
+        executionEngine.execute(cypherRequest.query, Map(cypherRequest.params: _*)).toStream
+      }
   }
 }
 

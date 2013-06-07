@@ -21,7 +21,7 @@ parallelExecution in Test := false
 //crossScalaVersions := Seq("2.9.1", "2.9.2")
  
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
+  "org.scalatest" % "scalatest_2.10" % "2.0.M6-SNAP20" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.10.0",
   "play" %% "play-json" % "2.2-SNAPSHOT",
   "org.neo4j" % "neo4j" % "1.9"
