@@ -1,4 +1,4 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
 import language.higherKinds
 

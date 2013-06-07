@@ -1,4 +1,4 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
 trait JsonSupport {
 
@@ -55,7 +55,7 @@ trait RestInvoker {
   val http = Http.configure {
     builder => builder.setCompressionEnabled(true)
       .setAllowPoolingConnection(true)
-      .setRequestTimeoutInMs(5000)
+      .setRequestTimeoutInMs(60000)
       .setMaximumConnectionsTotal(23)
   }
 

@@ -1,10 +1,8 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
-import org.anormcypher.CommonTest
+class ApiSpec extends CommonTest {
 
-class NewApiSpec extends CommonTest {
-
-  "New API" should "be able to create simple Cypher query against embedded" in {
+  "API" should "be able to create simple Cypher query against embedded" in {
     import CypherEmbedded._
     val query = "start n=node(0) return n"
     val q = cypher(query)
@@ -30,7 +28,6 @@ class NewApiSpec extends CommonTest {
     q.query should equal(query)
     q.params should equal(Seq.empty)
     serialize(q) should equal(json.obj("query" → query, "params" → json.toJson(json.obj())))
-
   }
 
   it should "be able to create parametrized Cypher query against rest" in {

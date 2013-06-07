@@ -1,6 +1,7 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
 import scala.reflect.ClassTag
+import org.neo4j.graphdb._
 
 trait MapSupport {
 

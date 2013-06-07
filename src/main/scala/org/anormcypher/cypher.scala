@@ -1,4 +1,4 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
 import language.implicitConversions
 
@@ -39,6 +39,26 @@ trait CypherEmbeddedSupport {
   implicit val cr2queryAndParams: Converter[IdentityValue, CypherRequest, (String, Map[String, Any])] =
     (obj: CypherRequest[IdentityValue]) ⇒
       obj.query → obj.params.groupBy(_._1).mapValues(seq ⇒ seq.map(_._2.underlying).head)
+
+  import org.neo4j.graphdb.factory.GraphDatabaseFactory
+  import org.neo4j.graphdb.GraphDatabaseService
+  import org.neo4j.cypher.ExecutionEngine
+  import scala.collection.JavaConversions._
+
+  var graphDb:GraphDatabaseService = null
+  var executionEngine:ExecutionEngine = null
+
+  def createDb(path:String, config:Map[String,String] = Map()) = {
+    graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(path).setConfig(config).newGraphDatabase
+    executionEngine = new ExecutionEngine(graphDb)
+  }
+
+  def shutdown = graphDb.shutdown
+
+  implicit class CypherEmbeddedInvoker(cypherRequest: CypherRequest[IdentityValue]) {
+    def execute[A]():Stream[Map[String,Any]] = 
+      executionEngine.execute(cypherRequest.query, Map(cypherRequest.params: _*)).toStream
+  }
 }
 
 trait CypherRestSupport {
@@ -54,6 +74,7 @@ trait CypherRestSupport {
       }.toList)
     )
   }
+
   implicit val cRequest2json: Converter[JsonValue, CypherRequest, JsValue] =
     (obj: CypherRequest[JsonValue]) ⇒ json.toJson(obj)
 }
@@ -71,5 +92,5 @@ trait CypherRest extends CypherSupport with JsonSupport with CypherRestSupport w
 
 }
 
-object CypherEmbedded extends CypherSupport with MapSupport with CypherEmbeddedSupport
+object CypherEmbedded extends CypherSupport with MapSupport with CypherEmbeddedSupport 
 object CypherRest extends CypherRest

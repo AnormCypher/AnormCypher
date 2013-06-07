@@ -1,4 +1,4 @@
-package org.anormcypher.newapi
+package org.anormcypher
 
 trait BatchSupport {
   self: CypherSupport with JsonSupport with CypherRestSupport ⇒
