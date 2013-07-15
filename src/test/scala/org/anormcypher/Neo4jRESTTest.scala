@@ -96,4 +96,22 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     rels should contain (r2)
   }
 
+  it should "be able to retrieve non ascii characters" in {
+    val (nonAsciiCharacters, surrogatePair) = ("日本語", "\uD83D\uDE04")
+    Cypher("""
+      CREATE (n {anormcyphername:'non-ascii-character', name:'%s', surrogate:'%s'});
+      """.format(nonAsciiCharacters, surrogatePair))()
+    val results = Cypher(
+      """
+        START n=node(*)
+        WHERE n.anormcyphername! = "non-ascii-character"
+        RETURN n;
+      """)()
+    val node = results.map { row =>
+      row[NeoNode]("n")
+    }.head
+    node.props("name") should equal (nonAsciiCharacters)
+    node.props("surrogate") should equal (surrogatePair)
+  }
+
 }
