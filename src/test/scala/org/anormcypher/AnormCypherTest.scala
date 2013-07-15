@@ -14,12 +14,12 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
       (monaco {name:"Monaco", population:32000, type:"Country", code:"MCO", tag:"anormcyphertest"}),
-      (english {type:"Language", name:"English", code:"EN"}),
-      (french {type:"Language", name:"French", code:"FR"}),
-      (german {type:"Language", name:"German", code:"DE"}),
-      (arabic {type:"Language", name:"Arabic", code:"AR"}),
-      (italian {type:"Language", name:"Italian", code:"IT"}),
-      (russian {type:"Language", name:"Russian", code:"RU"}),
+      (english {type:"Language", name:"English", code:"EN", tag:"anormcyphertest"}),
+      (french {type:"Language", name:"French", code:"FR", tag:"anormcyphertest"}),
+      (german {type:"Language", name:"German", code:"DE", tag:"anormcyphertest"}),
+      (arabic {type:"Language", name:"Arabic", code:"AR", tag:"anormcyphertest"}),
+      (italian {type:"Language", name:"Italian", code:"IT", tag:"anormcyphertest"}),
+      (russian {type:"Language", name:"Russian", code:"RU", tag:"anormcyphertest"}),
       france-[:speaks {official:true}]->french,
       france-[:speaks]->arabic,
       france-[:speaks]->italian,
@@ -33,9 +33,9 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   override def afterEach() = {
     // delete the test data
     Cypher("""start n=node(*)
-      match n-[r?]-m
+      match n-[r?]-()
       where n.tag! = "anormcyphertest"
-      delete n, r, m;
+      delete n, r;
       """)()
   }
 

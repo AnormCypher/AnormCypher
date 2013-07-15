@@ -14,12 +14,12 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
       (monaco {name:"Monaco", population:32000, type:"Country", code:"MCO", tag:"anormcyphertest"}),
-      (english {type:"Language", name:"English", code:"EN"}),
-      (french {type:"Language", name:"French", code:"FR"}),
-      (german {type:"Language", name:"German", code:"DE"}),
-      (arabic {type:"Language", name:"Arabic", code:"AR"}),
-      (italian {type:"Language", name:"Italian", code:"IT"}),
-      (russian {type:"Language", name:"Russian", code:"RU"}),
+      (english {type:"Language", name:"English", code:"EN", tag:"anormcyphertest"}),
+      (french {type:"Language", name:"French", code:"FR", tag:"anormcyphertest"}),
+      (german {type:"Language", name:"German", code:"DE", tag:"anormcyphertest"}),
+      (arabic {type:"Language", name:"Arabic", code:"AR", tag:"anormcyphertest"}),
+      (italian {type:"Language", name:"Italian", code:"IT", tag:"anormcyphertest"}),
+      (russian {type:"Language", name:"Russian", code:"RU", tag:"anormcyphertest"}),
       france-[:speaks {official:true}]->french,
       france-[:speaks]->arabic,
       france-[:speaks]->italian,
@@ -33,9 +33,9 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
   override def afterEach() {
     // delete the test data
     Cypher("""start n=node(*)
-      match n-[r?]-m
+      match n-[r?]-()
       where n.tag! = "anormcyphertest"
-      delete n, r, m;
+      delete n, r;
       """)()
   }
 
@@ -53,7 +53,7 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
       start n=node(*) 
       where n.tag! = 'anormcyphertest' 
       return count(n)""").as(scalar[Long].single)
-    count should equal (5)
+    count should equal (11)
   }
 
   it should "be able to parse a case class with a node" in {

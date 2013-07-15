@@ -13,6 +13,7 @@ object Neo4jREST {
     "X-Stream" -> "true",
     "User-Agent" -> "AnormCypher/0.4.1"
   )
+  val charset = "UTF-8"
 
   var baseURL = "http://localhost:7474/db/data/"
   var user = ""
@@ -121,12 +122,13 @@ object Neo4jREST {
 
   def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
     val cypherRequest = url(baseURL + cypherEndpoint).POST <:< headers
-    cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement)))
+    cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement))).
+      setBodyEncoding(charset)
     val result = Http(cypherRequest.as_!(user, pass))
     //TODO: check why we are blocking here...
     val response = result()
 
-    val strResult = response.getResponseBody
+    val strResult = response.getResponseBody(charset)
     if (response.getStatusCode != 200) throw new RuntimeException(strResult)
 
     val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
