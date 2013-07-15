@@ -1,11 +1,10 @@
 language: scala
 scala:
-  - "2.10.1"
+  - "2.10.2"
 jdk:
   - oraclejdk7
 
 before_install:
-  - export DJANGO_SETTINGS_MODULE="neo4django.tests.test_settings"
   - export NEO4J_PORT="7474"
   - sudo service neo4j stop || true
   - sleep 3
