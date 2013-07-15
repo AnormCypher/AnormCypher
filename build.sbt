@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.4.1"
+version := "0.4.2"
  
 publishMavenStyle := true
 
@@ -19,8 +19,6 @@ resolvers ++= Seq(
 
 parallelExecution in Test := false
 
-//crossScalaVersions := Seq("2.9.1", "2.9.2")
- 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "1.9.1" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
