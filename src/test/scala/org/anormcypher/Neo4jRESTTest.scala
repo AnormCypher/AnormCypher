@@ -26,11 +26,11 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
   }
 
   override def afterEach() {
-    Cypher("START n=node(*) match n-[r?]-() where has(n.anormcyphername) DELETE n,r;")()
+    Cypher("START n=node(*) match (n)-[r?]-() where has(n.anormcyphername) DELETE n,r;")()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
-    val results = Cypher("START n=node(*) where n.anormcyphername! = 'nprops' RETURN n;")()
+    val results = Cypher("START n=node(*) where n.anormcyphername = 'nprops' RETURN n;")()
     results.size should equal (1)
     val node = results.map { row =>
       row[NeoNode]("n")
@@ -44,7 +44,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
   it should "be able to retrieve collections of nodes" in {
     val results = Cypher("""
       START n=node(*) 
-      where n.anormcyphername! = 'n' or n.anormcyphername! = 'n2'
+      where n.anormcyphername = 'n' or n.anormcyphername = 'n2'
       RETURN collect(n);
       """)()
     val nodes = results.map { row =>
@@ -57,7 +57,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     val results = Cypher("""
       START n=node(*) 
       match n-[r]->m 
-      where n.anormcyphername! = 'n5'
+      where n.anormcyphername = 'n5'
       RETURN r;
       """)()
     results.size should equal (1)
@@ -83,7 +83,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     }.head
     val results = Cypher("""
       START n=node(*) 
-      match p=n-[r*2]->m
+      match p=(n)-[r*2]->(m)
       where has(n.anormcyphername) 
       and n.anormcyphername = "n8"
       RETURN r;
@@ -104,7 +104,7 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
     val results = Cypher(
       """
         START n=node(*)
-        WHERE n.anormcyphername! = "non-ascii-character"
+        WHERE n.anormcyphername = "non-ascii-character"
         RETURN n;
       """)()
     val node = results.map { row =>

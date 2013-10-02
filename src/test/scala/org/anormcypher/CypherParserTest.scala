@@ -33,15 +33,15 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
   override def afterEach() {
     // delete the test data
     Cypher("""start n=node(*)
-      match n-[r?]-()
-      where n.tag! = "anormcyphertest"
+      match (n)-[r?]-()
+      where n.tag = "anormcyphertest"
       delete n, r;
       """)()
   }
 
   "CypherParser" should "be able to parse a node" in {
     case class Country(name:String, node:NeoNode)
-    val results = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n order by name desc")().map {
+    val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n order by name desc")().map {
       row => Country(row[String]("name"), row[NeoNode]("n"))
     }.toList
     results.head.name should equal ("United States")
@@ -51,13 +51,13 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
   it should "be able to parse into a single Long" in {
     val count: Long = Cypher("""
       start n=node(*) 
-      where n.tag! = 'anormcyphertest' 
+      where n.tag = 'anormcyphertest' 
       return count(n)""").as(scalar[Long].single)
     count should equal (11)
   }
 
   it should "be able to parse a case class with a node" in {
-    val results = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n")().map {
+    val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n")().map {
       case CypherRow(name: String, n: NeoNode) => name -> n
       case e:Any => {//println(e);
       }
@@ -70,7 +70,7 @@ class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterE
     val result:List[(String,Int)] = 
       Cypher("""
         start n=node(*) 
-        where n.type! = 'Country' and has(n.name) and has(n.population) 
+        where n.type = 'Country' and has(n.name) and has(n.population) 
         return n.name, n.population 
         order by n.name
         """

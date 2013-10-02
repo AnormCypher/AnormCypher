@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.4.2"
+version := "0.4.3"
  
 publishMavenStyle := true
 
@@ -12,17 +12,14 @@ scalaVersion := "2.10.2"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
-resolvers ++= Seq(
-  "Mandubian snapshots" at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/",
-  "Mandubian releases" at "https://github.com/mandubian/mandubian-mvn/raw/master/releases/"
-  )
+resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
 parallelExecution in Test := false
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "1.9.1" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
-  "play" %% "play-json" % "2.2-SNAPSHOT"
+  "com.typesafe.play" %% "play-json" % "2.2.0"
 )
 
 seq(lsSettings :_*)

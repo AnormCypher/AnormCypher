@@ -34,7 +34,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
     // delete the test data
     Cypher("""start n=node(*)
       match n-[r?]-()
-      where n.tag! = "anormcyphertest"
+      where n.tag = "anormcyphertest"
       delete n, r;
       """)()
   }
@@ -58,7 +58,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
       START n=node(*) 
-      where n.name! = 'proptest'
+      where n.name = 'proptest'
       RETURN n;
       """
     Cypher(query)().size should equal (1)
@@ -67,7 +67,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to add parameters with .on()" in {
     val query = """
       start n=node({id}) 
-      where n.name! = {test} 
+      where n.name = {test} 
       return n;
       """
     Cypher(query).on("id"->0, "test"->"hello") should equal (
@@ -77,8 +77,8 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to send a query and map the results to a list" in {
     val allCountries = Cypher("""
       start n=node(*) 
-      where n.type! = "Country"
-      and n.tag! = "anormcyphertest"
+      where n.type = "Country"
+      and n.tag = "anormcyphertest"
       return n.code as code, n.name as name 
       order by name desc;
       """)
@@ -96,7 +96,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to submit a few requests in a row" in {
     val query = """
       START n=node(*) 
-      where n.tag! = "anormcyphertest"
+      where n.tag = "anormcyphertest"
       RETURN n;
       """
     val test = Cypher(query)()
@@ -109,7 +109,7 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to extract properties of different types" in {
     val allProps = Cypher("""
       start n=node(*) 
-      where n.name! = "proptest"
+      where n.name = "proptest"
       return n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf;
       """)
     val props = allProps().map(row => 
@@ -156,9 +156,9 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "be able to parse nullable fields of various types" in {
     val query = """
       START n=node(*)
-      WHERE n.type! = 'Country'
-      RETURN n.indepYear? as indepYear
-      order by n.indepYear?
+      WHERE n.type = 'Country'
+      RETURN n.indepYear as indepYear
+      order by n.indepYear
       """
     val results = Cypher(query)().map {
       row => row[Option[Int]]("indepYear")
@@ -169,8 +169,8 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
   it should "fail on null fields if they're not Option" in {
     val query = """
       START n=node(*)
-      WHERE n.type! = 'Country'
-      RETURN n.indepYear? as indepYear;
+      WHERE n.type = 'Country'
+      RETURN n.indepYear as indepYear;
       """
     evaluating { Cypher(query)().map {
       row => row[Int]("indepYear")

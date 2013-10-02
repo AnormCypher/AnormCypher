@@ -19,13 +19,12 @@ Switch to an empty folder and create a build.sbt file with the following:
 ``` Scala
 resolvers ++= Seq(
   "anormcypher" at "http://repo.anormcypher.org/",
-  "Mandubian repository snapshots" at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/",
-  "Mandubian repository releases" at "https://github.com/mandubian/mandubian-mvn/raw/master/releases/"
+  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 )
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.4.2"
+  "org.anormcypher" %% "anormcypher" % "0.4.3"
 )
 ```
 
