@@ -4,7 +4,7 @@ services:
 build:
   steps:
     - script:
-      name: setup golang
-      code: |-
+      name: run sbt tests
+      code: |
         cd $WERCKER_SOURCE_DIR
         sbt test
