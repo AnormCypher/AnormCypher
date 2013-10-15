@@ -2,6 +2,9 @@ box: pjvds/scala
 services:
     - wfreeman/neo4j
 build:
-  script: |-
-    cd $WERCKER_SOURCE_DIR
-    sbt test
+  steps:
+    - script:
+      name: setup golang
+      code: |-
+        cd $WERCKER_SOURCE_DIR
+        sbt test
