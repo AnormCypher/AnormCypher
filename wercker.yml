@@ -2,9 +2,9 @@ box: pjvds/scala
 services:
     - wfreeman/neo4j
 build:
-  steps:
-    - script:
-      name: run sbt tests
-      code: |
-        cd $WERCKER_SOURCE_DIR
-        sbt test
+    steps:
+        - script:
+            name: run sbt tests
+            code: |
+                cd $WERCKER_SOURCE_DIR
+                sbt test
