@@ -1,0 +1,3 @@
+box: pjvds/scala
+services:
+    - wfreeman/neo4j
