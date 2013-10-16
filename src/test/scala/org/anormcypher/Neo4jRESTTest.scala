@@ -8,6 +8,7 @@ import scala.collection.JavaConverters._
 class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
 
   override def beforeEach() {
+    Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
     Cypher("""
       CREATE (n {anormcyphername:'n'}), 
       (n2 {anormcyphername:'n2'}), 
