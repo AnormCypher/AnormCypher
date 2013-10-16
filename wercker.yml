@@ -7,4 +7,5 @@ build:
             name: run sbt tests
             code: |
                 cd $WERCKER_SOURCE_DIR
+                export NEO4J_SERVER=$WERCKER_NEO4J_SERVER
                 sbt test
