@@ -24,7 +24,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.4.3"
+  "org.anormcypher" %% "anormcypher" % "0.4.4"
 )
 ```
 
@@ -65,7 +65,9 @@ Neo4jREST.setServer("localhost", 7474, "/db/data/", "username", "password")
 
 For 1.8.x or older, you may need to specify a cypher endpoint like so (the default goes to the 1.9/2.0 style endpoint):
 
+```
 Neo4jREST.setServer("localhost", 7474, "/db/data/", "ext/CypherPlugin/graphdb/execute_query")
+```
 
 ### Executing Cypher Queries
 

@@ -11,7 +11,7 @@ object Neo4jREST {
     "accept" -> "application/json",
     "content-type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.4.3"
+    "User-Agent" -> "AnormCypher/0.4.4"
   )
   val charset = "UTF-8"
 
@@ -22,6 +22,12 @@ object Neo4jREST {
 
   def setServer(host: String = "localhost", port: Int = 7474, path: String = "/db/data/", endpoint:String = "cypher") {
     setServer(host, port, path, "", "", endpoint)
+  }
+
+  def setServer(host: String, port: Int, path: String, username: String, password: String) {
+    baseURL = "http://" + host + ":" + port + path
+    user = username
+    pass = password
   }
 
   def setServer(host: String, port: Int, path: String, username: String, password: String, endpoint:String) {
