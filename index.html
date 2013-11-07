@@ -57,7 +57,7 @@ which I found to be pleasant to use with SQL. More info about Anorm can be found
 
 
 <span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
-  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.4.3"</span>
+  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.4.4"</span>
 <span class="o">)</span>
 </pre></div>
 
@@ -102,7 +102,8 @@ options.</p>
 
 <p>For 1.8.x or older, you may need to specify a cypher endpoint like so (the default goes to the 1.9/2.0 style endpoint):</p>
 
-<p>Neo4jREST.setServer("localhost", 7474, "/db/data/", "ext/CypherPlugin/graphdb/execute_query")</p>
+<pre><code>Neo4jREST.setServer("localhost", 7474, "/db/data/", "ext/CypherPlugin/graphdb/execute_query")
+</code></pre>
 
 <h3>
 <a name="executing-cypher-queries" class="anchor" href="#executing-cypher-queries"><span class="octicon octicon-link"></span></a>Executing Cypher Queries</h3>
