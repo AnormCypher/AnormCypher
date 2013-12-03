@@ -1,11 +1,11 @@
 ## AnormCypher
-This is a Neo4j library purely for REST, using the Jerkson JSON parser and the Dispatch REST client library.
+This is a Neo4j library purely for REST, using the Dispatch REST client library.
 
 The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
 http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
-Integration tests currently run against neo4j-community-2.0.0-M06
+Integration tests currently run against neo4j-community-2.0.0-RC1.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
 
