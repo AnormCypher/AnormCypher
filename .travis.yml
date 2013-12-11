@@ -1,8 +1,11 @@
 language: scala
 scala:
-  - "2.10.2"
+  - "2.10.3"
 jdk:
   - oraclejdk7
+  
+env:
+  - NEO_VERSION="2.0.0"
 
 branches:
   only:
@@ -14,6 +17,6 @@ notifications:
     - jasonjackson@gmail.com
 
 before_install:
-  - wget dist.neo4j.org/neo4j-community-2.0.0-unix.tar.gz
-  - tar -xzf neo4j-community-2.0.0-unix.tar.gz
-  - neo4j-community-2.0.0/bin/neo4j start
+  - wget dist.neo4j.org/neo4j-community-$NEO_VERSION-unix.tar.gz
+  - tar -xzf neo4j-community-$NEO_VERSION-unix.tar.gz
+  - neo4j-community-$NEO_VERSION/bin/neo4j start
