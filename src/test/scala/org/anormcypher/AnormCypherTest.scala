@@ -33,8 +33,8 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
 
   override def afterEach() = {
     // delete the test data
-    Cypher("""start n=node(*)
-      match n-[r?]-()
+    Cypher("""match (n)
+      optional match n-[r]-()
       where n.tag = "anormcyphertest"
       delete n, r;
       """)()
