@@ -4,13 +4,6 @@ scala:
 jdk:
   - oraclejdk7
 
-before_install:
-  - export NEO4J_PORT="7474"
-  - sudo service neo4j stop || true
-  - sleep 3
-  - ./install_local_neo4j.bash $NEO4J_VERSION
-  - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
-
 branches:
   only:
     - master
@@ -20,5 +13,7 @@ notifications:
     - freeman.wes@gmail.com
     - jasonjackson@gmail.com
 
-services:
-  - neo4j
+before_install:
+  - wget dist.neo4j.org/neo4j-community-2.0.0-unix.tar.gz
+  - tar -xzf neo4j-community-2.0.0-unix.tar.gz
+  - neo4j-community-2.0.0/bin/neo4j start
