@@ -26,7 +26,7 @@ import org.anormcypher._
 Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
 
 // a simple query
-val req = conn.Cypher("start n=node(*) return n.name")
+val req = Cypher("start n=node(*) return n.name")
 
 // get a future stream of results back
 val futureStream = req()
@@ -47,7 +47,7 @@ import org.anormcypher._
 Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
 
 // a simple query
-val req = conn.Cypher("start n=node(*) return n.name")
+val req = Cypher("start n=node(*) return n.name")
 
 // get a stream of results back
 val stream = req.sync()
