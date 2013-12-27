@@ -5,7 +5,7 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
 Integration tests currently run against neo4j-community-2.0.0.
 
-[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
+[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=1.0.0)](https://travis-ci.org/AnormCypher/AnormCypher)
 
 ## SBT Console Demo
 
@@ -73,7 +73,8 @@ First, `import org.anormcypher._`, and then simply use the Cypher object to crea
 ``` Scala
 import org.anormcypher._ 
 
-val result:Boolean = Cypher("START n=node(0) RETURN n").execute()
+val result = Cypher("START n=node(0) RETURN n").execute()
+// returns Future[Boolean]
 ```
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
@@ -87,7 +88,7 @@ val result = Cypher("""
          (france:Country {name:"France", population:65436552, code:"FRA", indepYear:1790}),
          (monaco:Country {name:"Monaco", population:32000, code:"MCO"});
   """).execute()
-// result: Boolean = true
+// returns Future[Boolean]
  
 val cypherQuery = Cypher(
   """
