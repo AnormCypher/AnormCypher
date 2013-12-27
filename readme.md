@@ -22,21 +22,36 @@ Assuming you have a local Neo4j Server running on the default port, try (note: t
 ``` Scala
 import org.anormcypher._
 
-val conn = AnormCypherREST("http://localhost:7474/db/data/")
+// create some test nodes
+Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
+
+// a simple query
+val req = conn.Cypher("start n=node(*) return n.name")
+
+// get a future stream of results back
+val futureStream = req()
+
+// map over the future to get your results back
+futureStream.map { stream =>
+  println(stream.map(row => row[String]("n.name")).toList)
+}
+```
+
+## If you don't want to be Async with Futures
+Using Futures is encouraged for performance--and as of 1.0.0, is the default--but sometimes you just want something to work without the extra step of dealing with Futures.
+
+``` Scala
+import org.anormcypher._
 
 // create some test nodes
-conn.withTx {
-  Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
-}
+Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
 
 // a simple query
 val req = conn.Cypher("start n=node(*) return n.name")
 
 // get a stream of results back
-val stream = req()
-
-// get the results and put them into a list
-stream.map(row => {row[String]("n.name")}).toList
+val stream = req.sync()
+println(stream.map(row => row[String]("n.name")).toList)
 ```
 
 ## Usage
