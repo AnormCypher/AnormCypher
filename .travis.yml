@@ -10,6 +10,7 @@ env:
 branches:
   only:
     - master
+    - 1.0.0
 
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO_VERSION-unix.tar.gz
