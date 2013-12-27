@@ -202,7 +202,7 @@ Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indep
 ### Transactional API
 To get increased performance, you can use the transactional API. If you are only creating, don't bother get the results back, just using `.execute()` which gives a `Future[Boolean]`. Otherwise you will get a `Future[Stream[CypherRow]]`.
 
-```
+``` Scala
 withTx {
   for(x <- 1 to 10000) {
     Cypher("create (n:AnormCypherTest)").execute()
@@ -218,7 +218,7 @@ conn.withTx {
 ### Embedded
 To use embedded, you can add another libraryDependency in your build.sbt for:
 
-```
+``` Scala
 libraryDependencies ++= Seq(
    "org.neo4j" % "neo4j" % "2.0.0"
 )
@@ -226,7 +226,7 @@ libraryDependencies ++= Seq(
 
 Then, you can instantiate an embedded database and pass it to AnormCypher:
 
-```
+``` Scala
 import org.anormcypher.embedded._
 
 val db = new org.neo4j.graphdb.factory.GraphDatabaseFactory().newEmbeddedDatabase("/path/to/db/")
