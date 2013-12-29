@@ -10,6 +10,8 @@ scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feat
 
 parallelExecution in Test := false
 
+resolvers += "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/"
+
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.0",
