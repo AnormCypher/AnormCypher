@@ -1,33 +1,33 @@
 name := "AnormCypher"
  
-version := "0.4.5"
+version := "1.0.0"
  
-publishMavenStyle := true
-
 organization := "org.anormcypher"
-
-publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
 scalaVersion := "2.10.3"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
-resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
-
 parallelExecution in Test := false
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
-  "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
-  "com.typesafe.play" %% "play-json" % "2.2.0"
+  "org.scalatest" %% "scalatest" % "2.0" % "test",
+  "net.databinder.dispatch" %% "dispatch-core" % "0.11.0",
+  "com.typesafe.play" %% "play-json" % "2.2.0",
+  "org.neo4j" % "neo4j" % "2.0.0"
 )
 
 seq(lsSettings :_*)
 
 (LsKeys.tags in LsKeys.lsync) := Seq("anorm", "cypher", "neo4j", "neo")
 
-(externalResolvers in LsKeys.lsync) := Seq(
-  "anormcypher resolver" at "http://repo.anormcypher.org")
-
 (description in LsKeys.lsync) :=
   "A Neo4j library modeled after Play's Anorm."
+
+seq(ScctPlugin.instrumentSettings : _*)
+
+seq(com.github.theon.coveralls.CoverallsPlugin.coverallsSettings: _*)
+
+import com.github.theon.coveralls.CoverallsPlugin.CoverallsKeys._
+
+coverallsToken := "O68uHD9S3fLu1aTpLglDaJSKuNHQArwqq"

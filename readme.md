@@ -59,7 +59,7 @@ DefaultNeo4jREST.setServer("http://username:password@localhost:7474/db/data/")
 ### Handling multiple connections
 One of the downsides of using the DefaultNeo4jREST singleton object, is that you can't easily have two "connections" to different servers at the same time, without resetting the server each time.
 
-```
+``` Scala
 val conn = Neo4jREST("http://localhost:7474/db/data/")
 val conn2 = Neo4jREST("http://localhost:7474/db/data/")
 
