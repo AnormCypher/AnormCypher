@@ -10,12 +10,13 @@ scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feat
 
 parallelExecution in Test := false
 
-resolvers += "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/"
+resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.0",
-  "com.typesafe.play" % "play-json" % "2.2.1",
+  "com.typesafe.play" %% "play-json" % "2.2.1",
+  "com.typesafe.play" %% "play-iteratees" % "2.2.1",
   "org.neo4j" % "neo4j" % "2.0.0"
 )
 

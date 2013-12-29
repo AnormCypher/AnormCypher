@@ -1,4 +1,4 @@
-package org.anormcypher.rest
+package org.anormcypher.http
 
 import scala.concurrent.{Future => SFuture}
 import scala.concurrent.duration._
@@ -6,10 +6,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Failure}
 import org.anormcypher._
 
-case class Neo4jREST(baseURL:String) extends Neo4jConnection {
-  def connect = {
-    //Neo4jREST(baseURL=baseURL,transURL=transURL,cypherURL=cypherURL)
-  }
+object Neo4jHttp {
+  def apply(url:String) = new Neo4jHttp(url)
+}
+
+class Neo4jHttp(baseURL:String) extends Neo4jConnection {
+  var cypherURL = ""
+  var transactionURL = ""
 
   def query(stmt:CypherStatement):SFuture[Stream[CypherRow]] = concurrent.future {
     Stream[CypherRow]()
