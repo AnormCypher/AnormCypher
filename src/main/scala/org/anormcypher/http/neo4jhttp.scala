@@ -1,9 +1,10 @@
 package org.anormcypher.http
 
-import scala.concurrent.{Future => SFuture}
+import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Failure}
+import play.api.libs.iteratee._
 import org.anormcypher._
 
 object Neo4jHttp {
@@ -14,10 +15,9 @@ class Neo4jHttp(baseURL:String) extends Neo4jConnection {
   var cypherURL = ""
   var transactionURL = ""
 
-  def query(stmt:CypherStatement):SFuture[Stream[CypherRow]] = concurrent.future {
-    Stream[CypherRow]()
+  def query(stmt:CypherStatement):Future[Enumerator[CypherRow]] = future {
+    Enumerator[CypherRow]()
   }
 
-  //TODO make this timeout configurable
-  def querySync(stmt:CypherStatement):Stream[CypherRow] = ??? //Await.result[Stream[CypherRow]](query(stmt), 10.second)
+  def querySync(stmt:CypherStatement):Iterator[CypherRow] = ??? //Await.result[Stream[CypherRow]](query(stmt), 10.second)
 }
