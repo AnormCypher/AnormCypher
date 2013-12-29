@@ -5,7 +5,7 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
 Integration tests currently run against neo4j-community-2.0.0.
 
-[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png)](https://travis-ci.org/AnormCypher/AnormCypher)
+[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=1.0.0)](https://travis-ci.org/AnormCypher/AnormCypher)
 
 ## SBT Console Demo
 
@@ -22,21 +22,36 @@ Assuming you have a local Neo4j Server running on the default port, try (note: t
 ``` Scala
 import org.anormcypher._
 
-val conn = AnormCypherREST("http://localhost:7474/db/data/")
-
 // create some test nodes
-conn.withTx {
-  Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
-}
+Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
 
 // a simple query
-val req = conn.Cypher("start n=node(*) return n.name")
+val req = Cypher("start n=node(*) return n.name")
+
+// get a future stream of results back
+val futureStream = req()
+
+// map over the future to get your results back
+futureStream.map { stream =>
+  println(stream.map(row => row[String]("n.name")).toList)
+}
+```
+
+## If you don't want to be Async with Futures
+Using Futures is encouraged for performance--and as of 1.0.0, is the default--but sometimes you just want something to work without the extra step of dealing with Futures.
+
+``` Scala
+import org.anormcypher._
+
+// create some test nodes
+Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
+
+// a simple query
+val req = Cypher("start n=node(*) return n.name")
 
 // get a stream of results back
-val stream = req()
-
-// get the results and put them into a list
-stream.map(row => {row[String]("n.name")}).toList
+val stream = req.sync()
+println(stream.map(row => row[String]("n.name")).toList)
 ```
 
 ## Usage
@@ -73,7 +88,8 @@ First, `import org.anormcypher._`, and then simply use the Cypher object to crea
 ``` Scala
 import org.anormcypher._ 
 
-val result:Boolean = Cypher("START n=node(0) RETURN n").execute()
+val result = Cypher("START n=node(0) RETURN n").execute()
+// returns Future[Boolean]
 ```
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
@@ -87,7 +103,7 @@ val result = Cypher("""
          (france:Country {name:"France", population:65436552, code:"FRA", indepYear:1790}),
          (monaco:Country {name:"Monaco", population:32000, code:"MCO"});
   """).execute()
-// result: Boolean = true
+// returns Future[Boolean]
  
 val cypherQuery = Cypher(
   """
@@ -186,7 +202,7 @@ Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indep
 ### Transactional API
 To get increased performance, you can use the transactional API. If you are only creating, don't bother get the results back, just using `.execute()` which gives a `Future[Boolean]`. Otherwise you will get a `Future[Stream[CypherRow]]`.
 
-```
+``` Scala
 withTx {
   for(x <- 1 to 10000) {
     Cypher("create (n:AnormCypherTest)").execute()
@@ -202,7 +218,7 @@ conn.withTx {
 ### Embedded
 To use embedded, you can add another libraryDependency in your build.sbt for:
 
-```
+``` Scala
 libraryDependencies ++= Seq(
    "org.neo4j" % "neo4j" % "2.0.0"
 )
@@ -210,7 +226,7 @@ libraryDependencies ++= Seq(
 
 Then, you can instantiate an embedded database and pass it to AnormCypher:
 
-```
+``` Scala
 import org.anormcypher.embedded._
 
 val db = new org.neo4j.graphdb.factory.GraphDatabaseFactory().newEmbeddedDatabase("/path/to/db/")
