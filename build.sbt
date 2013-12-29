@@ -23,11 +23,3 @@ seq(lsSettings :_*)
 
 (description in LsKeys.lsync) :=
   "A Neo4j library modeled after Play's Anorm."
-
-seq(ScctPlugin.instrumentSettings : _*)
-
-seq(com.github.theon.coveralls.CoverallsPlugin.coverallsSettings: _*)
-
-import com.github.theon.coveralls.CoverallsPlugin.CoverallsKeys._
-
-coverallsToken := "O68uHD9S3fLu1aTpLglDaJSKuNHQArwqq"
