@@ -15,7 +15,7 @@ resolvers += "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.0",
-  "com.typesafe.play" %% "play-json" % "2.2.0",
+  "com.typesafe.play" %% "play-json" % "2.2.1",
   "org.neo4j" % "neo4j" % "2.0.0"
 )
 
