@@ -21,12 +21,11 @@ object DefaultNeo4jHttp extends Neo4jConnection {
 
 trait Neo4jConnection {
   def query(stmt:CypherStatement):Future[Enumerator[CypherRow]]
-  def querySync(stmt:CypherStatement):Iterator[CypherRow]
+  def querySync(stmt:CypherStatement):List[CypherRow]
   def Cypher(query:String) = CypherStatement(query=query, conn=this)
 }
 
 trait CypherRow {
-  def get(key:String)
-  val data:List[Any]
-  val columns:List[String]
+  def apply(key:String):Any = get(key)
+  def get(key:String):Any
 }
