@@ -114,8 +114,8 @@ If your Cypher query needs dynamic parameters, you can declare placeholders like
 Cypher(
   """
     start n=node(*) 
-    where n.type! = "Country"
-      and n.code! = {countryCode}
+    where n.type = "Country"
+      and n.code = {countryCode}
     return n.name
   """
 ).on("countryCode" -> "FRA")
@@ -128,7 +128,7 @@ When you call `apply()` on any Cypher statement, you will receive a lazy `Stream
 
 ``` Scala
 // Create Cypher query
-val allCountries = Cypher("start n=node(*) where n.type! = 'Country' return n.code as code, n.name as name")
+val allCountries = Cypher("start n=node(*) where n.type = 'Country' return n.code as code, n.name as name")
  
 // Transform the resulting Stream[CypherRow] to a List[(String,String)]
 val countries = allCountries.apply().map(row => 
@@ -140,7 +140,7 @@ In the following example we will count the number of Country entries in the data
 
 ``` Scala
 // First retrieve the first row
-val firstRow = Cypher("start n=node(*) where n.type! = 'Country' return count(n) as c").apply().head
+val firstRow = Cypher("start n=node(*) where n.type = 'Country' return count(n) as c").apply().head
  
 // Next get the content of the 'c' column as Long
 val countryCount = firstRow[Long]("c")
@@ -158,7 +158,7 @@ case class BigCountry(name:String)
 case class France
 
 // NOTE: case CypherRow syntax is NOT YET SUPPORTED
-val countries = Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.population as pop")().collect {
+val countries = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n.population as pop")().collect {
   case CypherRow("France", _) => France()
   case CypherRow(name:String, pop:Int) if(pop > 1000000) => BigCountry(name)
   case CypherRow(name:String, _) => SmallCountry(name)      
@@ -178,7 +178,7 @@ Nodes can be extracted as so:
 
 ``` Scala
 // NOTE: case CypherRow syntax is NOT YET SUPPORTED
-Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n")().map {
+Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n")().map {
   case CypherRow(name: String, n: org.anormcypher.NeoNode) => name -> n
 }
 ```  
@@ -213,14 +213,14 @@ For example, the `indepYear` of the `Country` table is nullable, so you need to 
 
 ``` Scala
 // NOTE: case CypherRow syntax is NOT YET SUPPORTED
-Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as year;")().collect {
+Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as year;")().collect {
   case CypherRow(name:String, Some(year:Int)) => name -> year
 }
 ```
 
 If you try to match this column as `Int` it won’t be able to parse `Null` values. Suppose you try to retrieve the column content as `Int` directly from the dictionary:
 ``` Scala
-Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;")().map { row =>
+Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as indepYear;")().map { row =>
   row[String]("name") -> row[Int]("indepYear")
 }
 ```
@@ -228,7 +228,7 @@ Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indep
 This will produce an `UnexpectedNullableFound(COUNTRY.INDEPYEAR)` exception if it encounters a null value, so you need to map it properly to an `Option[Int]`, as:
 
 ``` Scala
-Cypher("start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;")().map { row =>
+Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as indepYear;")().map { row =>
   row[String]("name") -> row[Option[Int]]("indepYear")
 }
 ```
@@ -266,7 +266,7 @@ Let’s write a more complicated parser:
 
 ``` Scala
 val populations:List[String~Int] = {
-  Cypher("start n=node(*) where n.type! = 'Country' return n.*").as( str("n.name") ~ int("n.population") * ) 
+  Cypher("start n=node(*) where n.type = 'Country' return n.*").as( str("n.name") ~ int("n.population") * ) 
 }
 ```
 
@@ -276,7 +276,7 @@ You can also rewrite the same code as:
 
 ``` Scala
 val result:List[String~Int] = {
-  Cypher("start n=node(*) where n.type! = 'Country' return n.*").as(get[String]("n.name")~get[Int]("n.population")*) 
+  Cypher("start n=node(*) where n.type = 'Country' return n.*").as(get[String]("n.name")~get[Int]("n.population")*) 
 }
 ```
 
@@ -292,7 +292,7 @@ Now, because transforming `A~B~C` types to `(A,B,C)` is a common task, we provid
 
 ``` Scala
 val result:List[(String,Int)] = {
-  Cypher("start n=node(*) where n.type! = 'Country' return n.*").as(
+  Cypher("start n=node(*) where n.type = 'Country' return n.*").as(
     str("n.name") ~ int("n.population") map(flatten) *
   ) 
 }
