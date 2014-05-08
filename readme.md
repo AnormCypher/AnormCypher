@@ -9,7 +9,9 @@ Integration tests currently run against neo4j-community-2.0.0.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-As of version 0.4, AnormCypher uses play-json and Scala 2.10. (thanks Julien for the PR!) I will push my refactoring ideas and Future support to 0.5.
+As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
+
+If you want to use scala 2.10, you need to use version 0.4.x (latest is 0.4.4)
 
 If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
@@ -24,7 +26,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.4.4"
+  "org.anormcypher" %% "anormcypher" % "0.5.0"
 )
 ```
 
