@@ -7,7 +7,7 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
 Integration tests currently run against neo4j-community-2.0.0.
 
-[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
+[![Build Status](https://travis-ci.org/denisrosca/AnormCypher.png?branch=master)](https://travis-ci.org/denisrosca/AnormCypher?branch=master)
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
