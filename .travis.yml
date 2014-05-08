@@ -5,7 +5,7 @@ jdk:
   - oraclejdk7
   
 env:
-  - NEO_VERSION="2.0.0"
+  - NEO_VERSION="2.0.3"
 
 branches:
   only:
