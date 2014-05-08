@@ -1,21 +1,25 @@
 package org.anormcyphertest
 
 import org.scalatest._
-import org.scalatest.matchers._
 import org.anormcypher._
 import scala.collection.JavaConverters._
 
-class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   override def beforeEach() {
     Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
-    Cypher("""
-      CREATE (n {anormcyphername:'n'}), 
-      (n2 {anormcyphername:'n2'}), 
-      (n3 {anormcyphername:'n3'}), 
-      n-[:test {name:'r'}]->n2, 
-      n2-[:test {name:'r2'}]->n3;
-      """)()
+
+    val q1 =
+      """CREATE (n {anormcyphername:'n'}), (n2 {anormcyphername:'n2'}), (n3 {anormcyphername:'n3'}), n-[:test {name:'r'}]->n2, n2-[:test {name:'r2'}]->n3;""".stripMargin
+
+      Cypher(q1)()
+//    Cypher("""
+//      CREATE (n {anormcyphername:'n'}),
+//      (n2 {anormcyphername:'n2'}),
+//      (n3 {anormcyphername:'n3'}),
+//      n-[:test {name:'r'}]->n2,
+//      n2-[:test {name:'r2'}]->n3;
+//      """)()
     Cypher("""
       CREATE (n5 {anormcyphername:'n5'}), 
         (n6 {anormcyphername:'n6'}), 
@@ -99,9 +103,11 @@ class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach
 
   it should "be able to retrieve non ascii characters" in {
     val (nonAsciiCharacters, surrogatePair) = ("日本語", "\uD83D\uDE04")
-    Cypher("""
+    val query: String = """
       CREATE (n {anormcyphername:'non-ascii-character', name:'%s', surrogate:'%s'});
-      """.format(nonAsciiCharacters, surrogatePair))()
+                         """.format(nonAsciiCharacters, surrogatePair)
+    println(query)
+    Cypher(query)()
     val results = Cypher(
       """
         START n=node(*)

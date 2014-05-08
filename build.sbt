@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.4.5"
+version := "0.5.0"
  
 publishMavenStyle := true
 
@@ -8,7 +8,7 @@ organization := "org.anormcypher"
 
 publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.11.0"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
@@ -17,9 +17,9 @@ resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/
 parallelExecution in Test := false
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
-  "net.databinder.dispatch" %% "dispatch-core" % "0.9.5",
-  "com.typesafe.play" %% "play-json" % "2.2.0"
+  "org.scalatest" %% "scalatest" % "2.1.5" % "test",
+  "net.databinder.dispatch" %% "dispatch-core" % "0.11.1",
+  "com.typesafe.play" %% "play-json" % "2.3.0-RC1"
 )
 
 seq(lsSettings :_*)
