@@ -13,8 +13,7 @@ branches:
 
 notifications:
   email:
-    - freeman.wes@gmail.com
-    - jasonjackson@gmail.com
+    - denis_rosca@yahoo.com
 
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO_VERSION-unix.tar.gz
