@@ -6,7 +6,7 @@ import org.anormcypher._
 import org.anormcypher.Neo4jREST._
 import scala.collection.JavaConverters._
 
-class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+class AnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
   override def beforeEach() = {
     Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
     // initialize some test data
@@ -173,9 +173,11 @@ class AnormCypherSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEa
       WHERE n.type = 'Country'
       RETURN n.indepYear as indepYear;
       """
-    evaluating { Cypher(query)().map {
-      row => row[Int]("indepYear")
-    } } should produce [RuntimeException]
+    an [RuntimeException] should be thrownBy {
+      Cypher(query)().map {
+        row => row[Int]("indepYear")
+      }
+    }
   }
 
 }

@@ -2,6 +2,7 @@ package org.anormcypher
 
 import dispatch._
 import org.anormcypher.MayErr._
+import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.libs.json.Json._
 import play.api.libs.json._
 
@@ -127,9 +128,10 @@ object Neo4jREST {
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
   def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
-    val cypherRequest = url(baseURL + cypherEndpoint).POST <:< headers
-    cypherRequest.setBody(Json.prettyPrint(Json.toJson(cypherStatement))).
-      setBodyEncoding(charset)
+    val cypherRequest =
+      (url(baseURL + cypherEndpoint).POST <:< headers)
+        .setBody(Json.stringify(Json.toJson(cypherStatement)))
+        .setBodyEncoding(charset)
     val result = Http(cypherRequest.as_!(user, pass))
     //TODO: check why we are blocking here...
     val response = result()
