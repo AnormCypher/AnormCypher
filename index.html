@@ -31,17 +31,19 @@
         <h2>
 <a name="anormcypher" class="anchor" href="#anormcypher"><span class="octicon octicon-link"></span></a>AnormCypher</h2>
 
-<p>This is a Neo4j library purely for REST, using the Jerkson JSON parser and the Dispatch REST client library.</p>
+<p>This is a Neo4j library purely for REST, using the Dispatch REST client library.</p>
 
 <p>The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
 <a href="http://www.playframework.org/documentation/2.0.4/ScalaAnorm">http://www.playframework.org/documentation/2.0.4/ScalaAnorm</a></p>
 
-<p>Integration tests currently run against neo4j-community-2.0.0-M05</p>
+<p>Integration tests currently run against neo4j-community-2.0.3.</p>
 
-<p><a href="https://travis-ci.org/AnormCypher/AnormCypher"><img src="https://travis-ci.org/AnormCypher/AnormCypher.png" alt="Build Status"></a></p>
+<p><a href="https://travis-ci.org/denisrosca/AnormCypher?branch=master"><img src="https://travis-ci.org/denisrosca/AnormCypher.png?branch=master" alt="Build Status"></a></p>
 
-<p>As of version 0.4, AnormCypher uses play-json and Scala 2.10. (thanks Julien for the PR!) I will push my refactoring ideas and Future support to 0.5.</p>
+<p>As of version 0.5, AnormCypher uses play-json and Scala 2.11. </p>
+
+<p>If you want to use scala 2.10, you need to use version 0.4.x (latest is 0.4.4)</p>
 
 <p>If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).</p>
 
@@ -57,7 +59,7 @@ which I found to be pleasant to use with SQL. More info about Anorm can be found
 
 
 <span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
-  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.4.4"</span>
+  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.5.0"</span>
 <span class="o">)</span>
 </pre></div>
 
@@ -148,8 +150,8 @@ options.</p>
 <div class="highlight highlight-Scala"><pre><span class="nc">Cypher</span><span class="o">(</span>
   <span class="s">"""</span>
 <span class="s">    start n=node(*) </span>
-<span class="s">    where n.type! = "Country"</span>
-<span class="s">      and n.code! = {countryCode}</span>
+<span class="s">    where n.type = "Country"</span>
+<span class="s">      and n.code = {countryCode}</span>
 <span class="s">    return n.name</span>
 <span class="s">  """</span>
 <span class="o">).</span><span class="n">on</span><span class="o">(</span><span class="s">"countryCode"</span> <span class="o">-&gt;</span> <span class="s">"FRA"</span><span class="o">)</span>
@@ -163,7 +165,7 @@ options.</p>
 <p>When you call <code>apply()</code> on any Cypher statement, you will receive a lazy <code>Stream</code> of <code>CypherRow</code> instances, where each row can be seen as a dictionary:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="c1">// Create Cypher query</span>
-<span class="k">val</span> <span class="n">allCountries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.code as code, n.name as name"</span><span class="o">)</span>
+<span class="k">val</span> <span class="n">allCountries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.code as code, n.name as name"</span><span class="o">)</span>
 
 <span class="c1">// Transform the resulting Stream[CypherRow] to a List[(String,String)]</span>
 <span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="n">allCountries</span><span class="o">.</span><span class="n">apply</span><span class="o">().</span><span class="n">map</span><span class="o">(</span><span class="n">row</span> <span class="k">=&gt;</span> 
@@ -174,7 +176,7 @@ options.</p>
 <p>In the following example we will count the number of Country entries in the database, so the result set will be a single row with a single column:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="c1">// First retrieve the first row</span>
-<span class="k">val</span> <span class="n">firstRow</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return count(n) as c"</span><span class="o">).</span><span class="n">apply</span><span class="o">().</span><span class="n">head</span>
+<span class="k">val</span> <span class="n">firstRow</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return count(n) as c"</span><span class="o">).</span><span class="n">apply</span><span class="o">().</span><span class="n">head</span>
 
 <span class="c1">// Next get the content of the 'c' column as Long</span>
 <span class="k">val</span> <span class="n">countryCount</span> <span class="k">=</span> <span class="n">firstRow</span><span class="o">[</span><span class="kt">Long</span><span class="o">](</span><span class="s">"c"</span><span class="o">)</span>
@@ -193,7 +195,7 @@ options.</p>
 <span class="k">case</span> <span class="k">class</span> <span class="nc">France</span>
 
 <span class="c1">// NOTE: case CypherRow syntax is NOT YET SUPPORTED</span>
-<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.population as pop"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+<span class="k">val</span> <span class="n">countries</span> <span class="k">=</span> <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.name as name, n.population as pop"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
   <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="s">"France"</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">France</span><span class="o">()</span>
   <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="n">pop</span><span class="k">:</span><span class="kt">Int</span><span class="o">)</span> <span class="k">if</span><span class="o">(</span><span class="n">pop</span> <span class="o">&gt;</span> <span class="mi">1000000</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">BigCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>
   <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SmallCountry</span><span class="o">(</span><span class="n">name</span><span class="o">)</span>      
@@ -215,7 +217,7 @@ options.</p>
 <p>Nodes can be extracted as so:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="c1">// NOTE: case CypherRow syntax is NOT YET SUPPORTED</span>
-<span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
+<span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.name as name, n"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span>
   <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">n</span><span class="k">:</span> <span class="kt">org.anormcypher.NeoNode</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">n</span>
 <span class="o">}</span>
 </pre></div>
@@ -253,21 +255,21 @@ options.</p>
 <p>For example, the <code>indepYear</code> of the <code>Country</code> table is nullable, so you need to match it as <code>Option[Int]</code>:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="c1">// NOTE: case CypherRow syntax is NOT YET SUPPORTED</span>
-<span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as year;"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
+<span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as year;"</span><span class="o">)().</span><span class="n">collect</span> <span class="o">{</span>
   <span class="k">case</span> <span class="nc">CypherRow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span><span class="kt">String</span><span class="o">,</span> <span class="nc">Some</span><span class="o">(</span><span class="n">year</span><span class="k">:</span><span class="kt">Int</span><span class="o">))</span> <span class="k">=&gt;</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">year</span>
 <span class="o">}</span>
 </pre></div>
 
 <p>If you try to match this column as <code>Int</code> it won’t be able to parse <code>Null</code> values. Suppose you try to retrieve the column content as <code>Int</code> directly from the dictionary:</p>
 
-<div class="highlight highlight-Scala"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+<div class="highlight highlight-Scala"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
   <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"indepYear"</span><span class="o">)</span>
 <span class="o">}</span>
 </pre></div>
 
 <p>This will produce an <code>UnexpectedNullableFound(COUNTRY.INDEPYEAR)</code> exception if it encounters a null value, so you need to map it properly to an <code>Option[Int]</code>, as:</p>
 
-<div class="highlight highlight-Scala"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.name as name, n.indepYear? as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
+<div class="highlight highlight-Scala"><pre><span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.name as name, n.indepYear as indepYear;"</span><span class="o">)().</span><span class="n">map</span> <span class="o">{</span> <span class="n">row</span> <span class="k">=&gt;</span>
   <span class="n">row</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"name"</span><span class="o">)</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">Int</span><span class="o">]](</span><span class="s">"indepYear"</span><span class="o">)</span>
 <span class="o">}</span>
 </pre></div>
@@ -303,7 +305,7 @@ options.</p>
 <p><code>str("name") ~ int("population")</code>, will create a <code>CypherRowParser</code> able to parse a row containing a <code>String</code> name column and an <code>Integer</code> population column. Then we can create a <code>ResultSetParser</code> that will parse as many rows of this kind as it can, using *:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="k">val</span> <span class="n">populations</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span> <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="o">*</span> <span class="o">)</span> 
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span> <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="o">*</span> <span class="o">)</span> 
 <span class="o">}</span>
 </pre></div>
 
@@ -312,7 +314,7 @@ options.</p>
 <p>You can also rewrite the same code as:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[</span><span class="kt">String~Int</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">get</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"n.name"</span><span class="o">)~</span><span class="n">get</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"n.population"</span><span class="o">)*)</span> 
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">get</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="s">"n.name"</span><span class="o">)~</span><span class="n">get</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"n.population"</span><span class="o">)*)</span> 
 <span class="o">}</span>
 </pre></div>
 
@@ -326,7 +328,7 @@ options.</p>
 <p>Now, because transforming <code>A~B~C</code> types to <code>(A,B,C)</code> is a common task, we provide a <code>flatten</code> function that does exactly that. So you finally write:</p>
 
 <div class="highlight highlight-Scala"><pre><span class="k">val</span> <span class="n">result</span><span class="k">:</span><span class="kt">List</span><span class="o">[(</span><span class="kt">String</span>,<span class="kt">Int</span><span class="o">)]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type! = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span>
+  <span class="nc">Cypher</span><span class="o">(</span><span class="s">"start n=node(*) where n.type = 'Country' return n.*"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span>
     <span class="n">str</span><span class="o">(</span><span class="s">"n.name"</span><span class="o">)</span> <span class="o">~</span> <span class="n">int</span><span class="o">(</span><span class="s">"n.population"</span><span class="o">)</span> <span class="n">map</span><span class="o">(</span><span class="n">flatten</span><span class="o">)</span> <span class="o">*</span>
   <span class="o">)</span> 
 <span class="o">}</span>
@@ -444,6 +446,7 @@ return country.name, language.name;
 <a href="https://github.com/okumin" class="user-mention">@okumin</a> on github</li>
 <li>
 <a href="https://github.com/mvallerie" class="user-mention">@mvallerie</a> on github</li>
+<li>Denis Rosca: <a href="https://github.com/denisrosca" class="user-mention">@denisrosca</a> on github</li>
 </ul><h2>
 <a name="thanks" class="anchor" href="#thanks"><span class="octicon octicon-link"></span></a>Thanks</h2>
 
