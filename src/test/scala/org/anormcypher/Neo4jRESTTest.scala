@@ -5,7 +5,7 @@ import org.scalatest.matchers._
 import org.anormcypher._
 import scala.collection.JavaConverters._
 
-class Neo4jRESTSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   override def beforeEach() {
     Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
