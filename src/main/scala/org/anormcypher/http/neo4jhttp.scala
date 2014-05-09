@@ -34,9 +34,9 @@ class Neo4jHttp(baseURL:String) extends Neo4jConnection {
 
   def query(stmt:CypherStatement):Future[Enumerator[CypherRow]] = {
     import AnormCypherJsonSerialization._
-    import JsonBodyParser._
     import JsonIteratees._
     import JsonEnumeratees._
+    import play.api.http.Status.OK
 
     val futureResponse: Future[Response] = WS.url(cypherURL).post(Json.toJson(stmt))
 
@@ -44,8 +44,9 @@ class Neo4jHttp(baseURL:String) extends Neo4jConnection {
     val bodyParser = parser(
       jsObject(
         "columns" -> jsSimpleArray.map(col => cols = col.as[Seq[String]]),
-        "data" -> (jsArray(jsValues(jsSimpleArray)) ><> parseItem &>> Iteratee.getChunks[Option[HttpCypherRow]])
-      )
+        "data" -> (jsArray(jsValues(jsSimpleArray)) ><> parseItem
+                    &>>  Iteratee.getChunks[Option[HttpCypherRow]]) 
+      ) &>> Iteratee.head
     )
 
     def parseItem: Enumeratee[JsArray, Option[HttpCypherRow]] = Enumeratee.map { arr =>
@@ -54,10 +55,13 @@ class Neo4jHttp(baseURL:String) extends Neo4jConnection {
       } yield HttpCypherRow(cols.toList, data.toList)
     }
 
-    futureResponse.map{ resp => 
-      val stream = resp.ahcResponse.getResponseBodyAsStream
-      Enumerator.fromStream(stream)(bodyParser)
-    }
+WS.url(cypherURL).postAndRetrieveStream(Json.toJson(stmt)) { headers =>    
+  if (headers.status == OK) {    
+    Iteratee.foreach(chunkOfData => bodyParser(chunkOfData))  
+  } else {     
+    // handle response error  
+  }
+}
   }
 }
 

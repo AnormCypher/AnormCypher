@@ -246,7 +246,6 @@ val conn = Neo4jEmbedded(db)
 
 ## Thanks
 * The Play Framework team for providing the Anorm library, the basis for this library.
-* Databinder.net, for the Dispatch library
 * Neo Technologies for Neo4j!
 
 ## License LGPL
