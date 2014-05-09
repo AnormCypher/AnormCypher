@@ -1,0 +1,22 @@
+{
+  "organization" : "org.anormcypher",
+  "name" : "AnormCypher",
+  "version" : "0.5.0",
+  "description" : "A Neo4j library modeled after Play's Anorm.",
+  "site" : "",
+  "tags" : [ "anorm", "cypher", "neo4j", "neo" ],
+  "docs" : "",
+  "resolvers" : [ "http://repo.anormcypher.org" ],
+  "dependencies" : [ {
+    "organization" : "net.databinder.dispatch",
+    "name" : "dispatch-core",
+    "version" : "0.11.1"
+  }, {
+    "organization" : "com.typesafe.play",
+    "name" : "play-json",
+    "version" : "2.3.0-RC1"
+  } ],
+  "scalas" : [ "2.11.0" ],
+  "licenses" : [ ],
+  "sbt" : false
+}

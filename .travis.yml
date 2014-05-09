@@ -1,11 +1,11 @@
 language: scala
 scala:
-  - "2.10.3"
+  - "2.11.0"
 jdk:
   - oraclejdk7
   
 env:
-  - NEO_VERSION="2.0.0"
+  - NEO_VERSION="2.0.3"
 
 branches:
   only:
@@ -13,8 +13,7 @@ branches:
 
 notifications:
   email:
-    - freeman.wes@gmail.com
-    - jasonjackson@gmail.com
+    - denis_rosca@yahoo.com
 
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO_VERSION-unix.tar.gz

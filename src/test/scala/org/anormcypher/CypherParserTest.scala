@@ -1,12 +1,11 @@
 package org.anormcyphertest
 
 import org.scalatest._
-import org.scalatest.matchers._
 import org.anormcypher._
 import org.anormcypher.CypherParser._
 import scala.collection.JavaConverters._
 
-class CypherParserSpec extends FlatSpec with ShouldMatchers with BeforeAndAfterEach {
+class CypherParserSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
   override def beforeEach() {
     Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
     // initialize some test data
