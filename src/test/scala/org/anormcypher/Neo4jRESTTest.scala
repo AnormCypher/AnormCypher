@@ -114,4 +114,20 @@ class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
     node.props("surrogate") should equal (surrogatePair)
   }
 
+  it should "be able to handle lists of maps in and out" in {
+    val lm = List(
+      Map("a" -> "b", "c" -> "d"), 
+      Map("a" -> "b", "c" -> "d"))
+    val q = Cypher("return {objects} as listOfMaps")
+      .on("objects" -> lm)
+    val res = q().map(row =>
+      row[Seq[Map[String,String]]]("listOfMaps")
+    ).toList
+    res(0) should equal(lm)
+    val res2 = q().map(row =>
+      row[Seq[Map[String,Any]]]("listOfMaps")
+    ).toList
+    res2(0) should equal(lm)
+  }
+
 }

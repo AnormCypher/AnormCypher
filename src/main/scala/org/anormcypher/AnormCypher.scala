@@ -208,6 +208,27 @@ object Column {
       case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[NeoNode] for column ${meta.column}"))
     }
   }
+
+  implicit def rowToSeqMapStringString = Column.nonNull[Seq[Map[String,String]]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[Map[String,String]](xs, meta) {
+        case m: Map[String,String] => m
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Map[String,String]")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Map[String,String]] for column ${meta.column}"))
+    }
+  }
+
+  implicit def rowToSeqMapStringAny = Column.nonNull[Seq[Map[String,Any]]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => checkSeq[Map[String,Any]](xs, meta) {
+        case m: Map[String,Any] => m
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Map[String,Any]")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Map[String,Any]] for column ${meta.column}"))
+    }
+  }
+
 }
 
 case class TupleFlattener[F](f: F)

@@ -98,6 +98,8 @@ object Neo4jREST {
               key -> JsArray(ss.map(s => JsString(s.asInstanceOf[String])))
             case sam: Map[_, _] if (sam.keys.forall(_.isInstanceOf[String])) =>
               key -> writes(sam.asInstanceOf[Map[String, Any]])
+            case sm: Seq[Map[_,_]] if (sm.forall(_.isInstanceOf[Map[String,Any]])) =>
+              key -> JsArray(sm.map(m => writes(m.asInstanceOf[Map[String,Any]])))
             case xs: Seq[_] => throw new RuntimeException(s"unsupported Neo4j array type: $xs (mixed types?)")
             case x => throw new RuntimeException(s"unsupported Neo4j type: $x")
           }
