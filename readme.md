@@ -26,7 +26,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.5.0"
+  "org.anormcypher" %% "anormcypher" % "0.5.1"
 )
 ```
 
