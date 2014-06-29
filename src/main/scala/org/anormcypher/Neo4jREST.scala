@@ -12,7 +12,7 @@ object Neo4jREST {
     "accept" -> "application/json",
     "content-type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.4.5"
+    "User-Agent" -> "AnormCypher/0.5.1"
   )
   val charset = "UTF-8"
 
