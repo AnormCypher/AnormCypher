@@ -1,5 +1,5 @@
 ## AnormCypher
-This is a Neo4j library purely for REST, using the Dispatch REST client library.
+This is a Neo4j client library for the HTTP Cypher endpoints.
 
 The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
@@ -7,7 +7,7 @@ http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
 Integration tests currently run against neo4j-community-2.0.3.
 
-[![Build Status](https://travis-ci.org/denisrosca/AnormCypher.png?branch=master)](https://travis-ci.org/denisrosca/AnormCypher?branch=master)
+[![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
