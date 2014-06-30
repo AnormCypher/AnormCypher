@@ -59,7 +59,7 @@ which I found to be pleasant to use with SQL. More info about Anorm can be found
 
 
 <span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
-  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.5.0"</span>
+  <span class="s">"org.anormcypher"</span> <span class="o">%%</span> <span class="s">"anormcypher"</span> <span class="o">%</span> <span class="s">"0.5.1"</span>
 <span class="o">)</span>
 </pre></div>
 
@@ -336,10 +336,10 @@ options.</p>
 
 <p>Now let’s try with a more complicated example. How to parse the result of the following query to retrieve the country name and all spoken languages for a country code?</p>
 
-<pre lang="Cypher"><code>start country=node_auto_index(code="FRA")
-match country-[:speaks]-&gt;language
-return country.name, language.name;
-</code></pre>
+<div class="highlight highlight-Cypher"><pre><span class="k">start</span><span class="w"> </span><span class="n">country</span><span class="p">=</span><span class="n">node_auto_index</span><span class="p">(</span><span class="n">code</span><span class="p">=</span><span class="s">"FRA"</span><span class="p">)</span><span class="w"></span>
+<span class="k">match</span><span class="w"> </span><span class="n">country</span><span class="o">-[</span><span class="p">:</span><span class="n">speaks</span><span class="o">]-&gt;</span><span class="n">language</span><span class="w"></span>
+<span class="k">return</span><span class="w"> </span><span class="n">country</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">language</span><span class="p">.</span><span class="n">name</span><span class="p">;</span><span class="w"></span>
+</pre></div>
 
 <p>Let's start by parsing all rows as a <code>List[(String,String)]</code> (a list of name,language tuples):</p>
 
