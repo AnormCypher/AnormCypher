@@ -27,7 +27,7 @@ class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Cypher("match (n) optional match (n)-[r]-() where has(n.anormcyphername) DELETE n,r;")()
+    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;")()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
