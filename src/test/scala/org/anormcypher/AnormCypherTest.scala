@@ -34,8 +34,8 @@ class AnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
   override def afterEach() = {
     // delete the test data
     Cypher("""match (n)
-      optional match n-[r]-()
       where n.tag = "anormcyphertest"
+      optional match n-[r]-()
       delete n, r;
       """)()
   }
