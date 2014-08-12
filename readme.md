@@ -5,7 +5,7 @@ The goals of this library are to provide a great API to use Cypher, and it will 
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
 http://www.playframework.org/documentation/2.0.4/ScalaAnorm
 
-Integration tests currently run against neo4j-community-2.0.3.
+Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
