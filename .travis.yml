@@ -5,15 +5,11 @@ jdk:
   - oraclejdk7
   
 env:
-  - NEO_VERSION="2.0.3"
+  - NEO_VERSION="2.1.3"
 
 branches:
   only:
     - master
-
-notifications:
-  email:
-    - denis_rosca@yahoo.com
 
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO_VERSION-unix.tar.gz
