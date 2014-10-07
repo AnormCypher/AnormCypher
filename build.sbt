@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.5.1"
+version := "0.6.0"
  
 publishMavenStyle := true
 
@@ -19,7 +19,7 @@ parallelExecution in Test := false
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.1.5" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.1",
-  "com.typesafe.play" %% "play-json" % "2.3.0-RC1"
+  "com.typesafe.play" %% "play-json" % "2.3.5"
 )
 
 seq(lsSettings :_*)
