@@ -14,7 +14,7 @@ class Neo4jREST(val host: String = "localhost", val port: Int = 7474, val path: 
     "accept" -> "application/json",
     "content-type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.5.1"
+    "User-Agent" -> "AnormCypher/0.6.0"
   )
   private val charset = "UTF-8"
 
