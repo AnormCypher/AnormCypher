@@ -358,34 +358,32 @@ object Useful {
 
 case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
-  import Neo4jREST._
-
-  def apply() = sendQuery(this)
+  def apply()(implicit connection: Neo4jREST) = connection.sendQuery(this)
 
   def on(args: (String, Any)*) = this.copy(params = params ++ args)
 
-  def execute(): Boolean = {
+  def execute()(implicit connection: Neo4jREST): Boolean = {
     var retVal = true
     try {
       // throws an exception on a query that doesn't succeed.
-      sendQuery(this)
+      apply()
     } catch {
       case e: Exception => retVal = false
     }
     retVal
   }
 
-  def as[T](parser: CypherResultSetParser[T]): T = {
-    Cypher.as[T](parser, sendQuery(this))
+  def as[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST): T = {
+    Cypher.as[T](parser, apply())
   }
 
-  def list[A](rowParser: CypherRowParser[A])(): Seq[A] = as(rowParser.*)
+  def list[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): Seq[A] = as(rowParser.*)
 
-  def single[A](rowParser: CypherRowParser[A])(): A = as(CypherResultSetParser.single(rowParser))
+  def single[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): A = as(CypherResultSetParser.single(rowParser))
 
-  def singleOpt[A](rowParser: CypherRowParser[A])(): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
+  def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-  def parse[T](parser: CypherResultSetParser[T])(): T = Cypher.parse[T](parser, sendQuery(this))
+  def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST): T = Cypher.parse[T](parser, apply())
 }
 
 
