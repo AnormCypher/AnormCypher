@@ -7,8 +7,9 @@ import org.anormcypher.Neo4jREST._
 import scala.collection.JavaConverters._
 
 class AnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
+  implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
+
   override def beforeEach() = {
-    Neo4jREST.setServer(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),

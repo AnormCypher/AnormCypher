@@ -36,6 +36,9 @@ Assuming you have a local Neo4j Server running on the default port, try (note: t
 ``` Scala
 import org.anormcypher._
 
+// Setup the Rest Client
+implicit val connection = Neo4jREST()
+
 // create some test nodes
 Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
 
@@ -59,28 +62,29 @@ options.
 import org.anormcypher._
 
 // without auth
-Neo4jREST.setServer("localhost", 7474, "/db/data/")
+implicit val connection = Neo4jREST("localhost", 7474, "/db/data/")
 
 // or with basic auth
-Neo4jREST.setServer("localhost", 7474, "/db/data/", "username", "password")
+implicit val connection2 = Neo4jREST("localhost", 7474, "/db/data/", "username", "password")
 ```
 
 For 1.8.x or older, you may need to specify a cypher endpoint like so (the default goes to the 1.9/2.0 style endpoint):
 
 ```
-Neo4jREST.setServer("localhost", 7474, "/db/data/", "ext/CypherPlugin/graphdb/execute_query")
+implicit val connection = Neo4jREST("localhost", 7474, "/db/data/", cypherEndpoint = "ext/CypherPlugin/graphdb/execute_query")
 ```
 
 ### Executing Cypher Queries
 
 To start you need to learn how to execute Cypher queries.
 
-First, `import org.anormcypher._`, and then simply use the Cypher object to create queries. 
+First, `import org.anormcypher._`, setup an implicit Neo4jREST instance, and then use the Cypher object to create queries.
 
 ``` Scala
 import org.anormcypher._ 
+implicit val connection = Neo4jREST()
 
-val result: Boolean = Cypher("START n=node(0) RETURN n").execute()    
+val result: Boolean = Cypher("START n=node(0) RETURN n").execute()
 ```
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
