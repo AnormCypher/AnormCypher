@@ -26,7 +26,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.5.1"
+  "org.anormcypher" %% "anormcypher" % "0.6.0"
 )
 ```
 
@@ -419,6 +419,7 @@ $ spokenLanguages("FRA")
 * [@okumin](https://github.com/okumin) on github
 * [@mvallerie](https://github.com/mvallerie) on github
 * Denis Rosca: [@denisrosca](https://github.com/denisrosca) on github
+* Darren Gibson: [@zarthross](https://github.com/zarthross) on github
 
 ## Thanks
 * The Play Framework team for providing the Anorm library, the basis for this library. (and now the play-json module)
