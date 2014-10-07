@@ -9,6 +9,8 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
+Version 0.6 has a concept of connections (small breaking API change), to allow multiple Neo4j servers to be used in the same project.
+
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
 If you want to use scala 2.10, you need to use version 0.4.x (latest is 0.4.4)
