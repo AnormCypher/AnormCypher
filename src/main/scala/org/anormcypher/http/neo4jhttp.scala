@@ -8,7 +8,6 @@ import play.api.libs.iteratee._
 import play.api.libs.json._
 import play.api.libs.ws._
 import org.anormcypher._
-import play.extras.iteratees._
 
 object Neo4jHttp {
   def apply(url: String) = new Neo4jHttp(url)
