@@ -1,6 +1,7 @@
 package org.anormcypher
 
 import MayErr._
+import scala.concurrent.{Promise, ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 abstract class CypherRequestError
@@ -358,7 +359,13 @@ object Useful {
 
 case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
-  def apply()(implicit connection: Neo4jREST) = connection.sendQuery(this)
+  def apply()(implicit connection: Neo4jREST): Stream[CypherResultRow] = {
+    import dispatch._
+    val res = connection.sendQuery(this)
+    res()
+  }
+
+  def async()(implicit connection: Neo4jREST): Future[Stream[CypherResultRow]] = connection.sendQuery(this)
 
   def on(args: (String, Any)*) = this.copy(params = params ++ args)
 
@@ -384,6 +391,24 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
   def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
   def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST): T = Cypher.parse[T](parser, apply())
+
+  def executeAsync()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Boolean] = {
+    val p = Promise[Boolean]()
+    async().onComplete { x => p.success(x.isSuccess) }
+    p.future
+  }
+
+  def asAsync[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST, ec: ExecutionContext): Future[T] = {
+    Cypher.as[T](parser, async())
+  }
+
+  def listAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Seq[A]] = asAsync(rowParser.*)
+
+  def singleAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[A] = asAsync(CypherResultSetParser.single(rowParser))
+
+  def singleOptAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Option[A]] = asAsync(CypherResultSetParser.singleOpt(rowParser))
+
+  def parseAsync[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[T] = Cypher.parse[T](parser, async())
 }
 
 
@@ -392,12 +417,16 @@ object Cypher {
 
   def apply(cypher: String) = CypherStatement(cypher)
 
+  def as[T](parser: CypherResultSetParser[T], rs: Future[Stream[CypherResultRow]])(implicit ec: ExecutionContext): Future[T] =
+    rs.map { as(parser,_) }
   def as[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
     parser(rs) match {
       case Success(a) => a
       case Error(e) => sys.error(e.toString)
     }
 
+  def parse[T](parser: CypherResultSetParser[T], rs: Future[Stream[CypherResultRow]])(implicit ec: ExecutionContext): Future[T] =
+    rs.map { parse[T](parser,_) }
   def parse[T](parser: CypherResultSetParser[T], rs: Stream[CypherResultRow]): T =
     parser(rs) match {
       case Success(a) => a

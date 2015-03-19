@@ -8,7 +8,7 @@ organization := "org.anormcypher"
 
 publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
-scalaVersion := "2.11.0"
+scalaVersion := "2.11.6"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
@@ -17,9 +17,10 @@ resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/
 parallelExecution in Test := false
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.1.5" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.1",
-  "com.typesafe.play" %% "play-json" % "2.3.5"
+  "com.typesafe.play" %% "play-json" % "2.3.5",
+  "org.scala-lang.modules" %% "scala-async" % "0.9.2"
 )
 
 seq(lsSettings :_*)

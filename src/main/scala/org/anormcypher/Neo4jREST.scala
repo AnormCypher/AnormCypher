@@ -24,29 +24,29 @@ class Neo4jREST(val host: String = "localhost", val port: Int = 7474, val path: 
     s"$protocol://$host:$port/$pth"
   }
 
-  def sendQuery(cypherStatement: CypherStatement): Stream[CypherResultRow] = {
+  def sendQuery(cypherStatement: CypherStatement): Future[Stream[CypherResultRow]] = {
     implicit val csw = Neo4jREST.cypherStatementWrites
     implicit val csr = Neo4jREST.cypherRESTResultReads
     val cypherRequest = url(baseURL + cypherEndpoint).POST <<
       Json.prettyPrint(Json.toJson(cypherStatement)) <:<
       headers
     cypherRequest.setBodyEncoding(charset)
-    val result = Http(cypherRequest.as_!(username, password))
-    //TODO: check why we are blocking here...
-    val response = result()
+    val result: Future[Res] = Http(cypherRequest.as_!(username, password))
+    result.map { response =>
 
-    val strResult = response.getResponseBody(charset)
-    if (response.getStatusCode != 200) throw new RuntimeException(strResult)
+      val strResult = response.getResponseBody(charset)
+      if (response.getStatusCode != 200) throw new RuntimeException(strResult)
 
-    val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
-    val metaDataItems = cypherRESTResult.columns.map {
-      c => MetaDataItem(c, false, "String")
-    }.toList
-    val metaData = MetaData(metaDataItems)
-    val data = cypherRESTResult.data.map {
-      d => CypherResultRow(metaData, d.toList)
-    }.toStream
-    data
+      val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
+      val metaDataItems = cypherRESTResult.columns.map {
+        c => MetaDataItem(c, false, "String")
+      }.toList
+      val metaData = MetaData(metaDataItems)
+      val data = cypherRESTResult.data.map {
+        d => CypherResultRow(metaData, d.toList)
+      }.toStream
+      data
+    }
   }
 }
 
