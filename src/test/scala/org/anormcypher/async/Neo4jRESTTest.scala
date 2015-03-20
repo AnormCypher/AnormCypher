@@ -8,30 +8,30 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 class Neo4jRESTAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEach with ScalaFutures  {
-
+  import org.scalatest.time._
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(2, Minutes))
   implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
 
   override def beforeEach() {
-    val f = Cypher("""
+    Cypher("""
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
       (n3 {anormcyphername:'n3'}),
       n-[:test {name:'r'}]->n2,
       n2-[:test {name:'r2'}]->n3;
-      """).async()
-    val f1 = Cypher("""
+      """).apply()
+    Cypher("""
       CREATE (n5 {anormcyphername:'n5'}), 
         (n6 {anormcyphername:'n6'}), 
         n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"]}]->n6;
-      """).async()
-    val f2 = Cypher("""
+      """).apply()
+    Cypher("""
       CREATE (n7 {anormcyphername:'nprops', i:1, arr:[1,2,3], arrc:['a','b','c']});
-      """).async()
-    Future.sequence(Seq(f,f1,f2)).futureValue
+      """).apply()
   }
 
   override def afterEach() {
-    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;").async().futureValue
+    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;").apply()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {

@@ -9,6 +9,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class CypherParserAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEach with ScalaFutures {
+  import org.scalatest.time._
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(2, Minutes))
   implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
 
   override def beforeEach() {
@@ -31,7 +33,7 @@ class CypherParserAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEa
       germany-[:speaks]->english,
       germany-[:speaks]->russian,
       (proptest {name:"proptest", tag:"anormcyphertest", f:1.234, i:1234, l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"], arrf:[1.234,2.345,3.456]});
-      """).async().futureValue
+      """).apply()
   }
 
   override def afterEach() {
@@ -40,7 +42,7 @@ class CypherParserAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEa
       where n.tag = "anormcyphertest"
       optional match (n)-[r]-()
       delete n, r;
-      """).async().futureValue
+      """).apply()
   }
 
   "CypherParser" should "be able to parse a node" in {
