@@ -57,6 +57,14 @@ class CypherParserSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
     count should equal (11)
   }
 
+  it should "be able to parse into a single Float" in {
+    val count: Float = Cypher("""
+      start n=node(*)
+      where n.tag = 'anormcyphertest'
+      return count(n)""").as(scalar[Float].single)
+    count should equal (11)
+  }
+
   it should "be able to parse a case class with a node" in {
     val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n")().map {
       case CypherRow(name: String, n: NeoNode) => name -> n
