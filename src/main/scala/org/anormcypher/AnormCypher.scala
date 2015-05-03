@@ -54,6 +54,13 @@ object Column {
     }
   }
 
+  implicit def rowToFloat = Column.nonNull[Float] {
+    (value, meta) => value match {
+      case bd: BigDecimal => Right(bd.toFloat)
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x:${x.getClass} to Float for column ${meta.column}"))
+    }
+  }
+
   implicit def rowToShort = Column.nonNull[Short] {
     (value, meta) => value match {
       case bd: BigDecimal if bd.isValidShort => Right(bd.toShortExact)
