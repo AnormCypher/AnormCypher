@@ -1,4 +1,6 @@
 ## AnormCypher
+
+[![Join the chat at https://gitter.im/AnormCypher/AnormCypher](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/AnormCypher/AnormCypher?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 This is a Neo4j client library for the HTTP Cypher endpoints.
 
 The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
