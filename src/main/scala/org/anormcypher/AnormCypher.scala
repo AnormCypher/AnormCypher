@@ -171,6 +171,16 @@ object Column {
     }
   }
 
+  implicit def rowToSeqBoolean = Column.nonNull[Seq[Boolean]] {
+    (value, meta) => value match {
+      case xs: Seq[_] => Column.checkSeq[Boolean](xs, meta) {
+        case b: Boolean => b
+        case x => throw new RuntimeException(s"Cannot convert $x: ${x.getClass} to Boolean")
+      }
+      case x => Left(TypeDoesNotMatch(s"Cannot convert $x: ${x.getClass} to Seq[Boolean] for column ${meta.column}"))
+    }
+  }
+
   implicit def rowToSeqDouble = Column.nonNull[Seq[Double]] {
     (value, meta) => value match {
       case xs: Seq[_] => checkSeq[Double](xs, meta) {
