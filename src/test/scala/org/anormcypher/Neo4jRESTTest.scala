@@ -1,14 +1,9 @@
-package org.anormcyphertest
+package org.anormcypher
 
-import org.scalatest._
-import org.anormcypher._
-import scala.collection.JavaConverters._
+class Neo4jRESTSpec extends BaseAnormCypherSpec {
+  implicit val connection = neo4jrest
 
-class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
-
-  implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
-
-  override def beforeEach() {
+  override def beforeEach = {
     Cypher("""
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
@@ -26,7 +21,7 @@ class Neo4jRESTSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
       """)()
   }
 
-  override def afterEach() {
+  override def afterEach = {
     Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;")()
   }
 

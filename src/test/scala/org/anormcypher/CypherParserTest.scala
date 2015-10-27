@@ -1,14 +1,11 @@
-package org.anormcyphertest
+package org.anormcypher
 
-import org.scalatest._
-import org.anormcypher._
-import org.anormcypher.CypherParser._
-import scala.collection.JavaConverters._
+import CypherParser._
 
-class CypherParserSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
-  implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
+class CypherParserSpec extends BaseAnormCypherSpec {
+  implicit val connection = neo4jrest
 
-  override def beforeEach() {
+  override def beforeEach = {
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
@@ -31,7 +28,7 @@ class CypherParserSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
       """)()
   }
 
-  override def afterEach() {
+  override def afterEach = {
     // delete the test data
     Cypher("""match (n)     
       where n.tag = "anormcyphertest"
