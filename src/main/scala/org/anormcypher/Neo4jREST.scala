@@ -2,8 +2,7 @@ package org.anormcypher
 
 import play.api.libs.json._, Json._
 import play.api.libs.ws._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent._
 
 class Neo4jREST(wsclient: WSClient,
   val host: String = "localhost", val port: Int = 7474, val path: String = "/db/data/",
@@ -28,11 +27,12 @@ class Neo4jREST(wsclient: WSClient,
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  def sendQuery(cypherStatement: CypherStatement): Future[Stream[CypherResultRow]] = {
+  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Stream[CypherResultRow]] = {
     implicit val csw = Neo4jREST.cypherStatementWrites
     implicit val csr = Neo4jREST.cypherRESTResultReads
 
     val result = request.post(Json.toJson(cypherStatement)(csw))
+
     result.map { response =>
 
       val strResult = response.body
