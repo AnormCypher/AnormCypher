@@ -3,8 +3,6 @@ package org.anormcypher
 import CypherParser._
 
 class CypherParserSpec extends BaseAnormCypherSpec {
-  implicit val connection = neo4jrest
-
   override def beforeEach = {
     // initialize some test data
     Cypher("""create 

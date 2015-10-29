@@ -2,16 +2,8 @@ package org.anormcypher.async
 
 import org.anormcypher.CypherParser._
 import org.anormcypher._
-import org.scalatest.concurrent.ScalaFutures
-
-import scala.concurrent.ExecutionContext
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class CypherParserAsyncSpec extends BaseAsyncSpec {
-  import org.scalatest.time._
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(2, Minutes))
-  implicit val connection = neo4jrest
-
   override def beforeEach = {
     // initialize some test data
     Cypher("""create 

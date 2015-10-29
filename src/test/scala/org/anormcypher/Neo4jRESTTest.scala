@@ -1,8 +1,6 @@
 package org.anormcypher
 
 class Neo4jRESTSpec extends BaseAnormCypherSpec {
-  implicit val connection = neo4jrest
-
   override def beforeEach = {
     Cypher("""
       CREATE (n {anormcyphername:'n'}),
