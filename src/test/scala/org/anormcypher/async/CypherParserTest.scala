@@ -2,18 +2,9 @@ package org.anormcypher.async
 
 import org.anormcypher.CypherParser._
 import org.anormcypher._
-import org.scalatest._
-import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.ExecutionContext.Implicits.global
-
-class CypherParserAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEach with ScalaFutures {
-  import org.scalatest.time._
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(2, Minutes))
-  implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
-
-  override def beforeEach() {
+class CypherParserAsyncSpec extends BaseAsyncSpec {
+  override def beforeEach = {
     // initialize some test data
     Cypher("""create 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
@@ -36,7 +27,7 @@ class CypherParserAsyncSpec extends FlatSpec with Matchers with BeforeAndAfterEa
       """).apply()
   }
 
-  override def afterEach() {
+  override def afterEach = {
     // delete the test data
     Cypher("""match (n)     
       where n.tag = "anormcyphertest"

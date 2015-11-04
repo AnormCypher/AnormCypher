@@ -1,22 +1,20 @@
 package org.anormcypher
 
-import dispatch._
-import dispatch.Defaults._
-import org.anormcypher.MayErr._
-import play.api.libs.json.Json._
-import play.api.libs.json._
+import play.api.libs.json._, Json._
+import play.api.libs.ws._
+import scala.concurrent._
 
-class Neo4jREST(val host: String = "localhost", val port: Int = 7474, val path: String = "/db/data/",
+class Neo4jREST(wsclient: WSClient,
+  val host: String = "localhost", val port: Int = 7474, val path: String = "/db/data/",
                 val username: String = "", val password: String = "",
                 val cypherEndpoint: String = "cypher", val https: Boolean = false) {
 
-  private val headers = Map(
-    "accept" -> "application/json",
-    "content-type" -> "application/json",
+  private val headers = Seq(
+    "Accept" -> "application/json",
+    "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.6.0"
+    "User-Agent" -> "AnormCypher/0.7.0"
   )
-  private val charset = "UTF-8"
 
   private val baseURL = {
     val protocol = if (https) "https" else "http"
@@ -24,18 +22,21 @@ class Neo4jREST(val host: String = "localhost", val port: Int = 7474, val path: 
     s"$protocol://$host:$port/$pth"
   }
 
-  def sendQuery(cypherStatement: CypherStatement): Future[Stream[CypherResultRow]] = {
+  private def request = {
+    val req = wsclient.url(baseURL + cypherEndpoint).withHeaders(headers:_*)
+    if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
+  }
+
+  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Stream[CypherResultRow]] = {
     implicit val csw = Neo4jREST.cypherStatementWrites
     implicit val csr = Neo4jREST.cypherRESTResultReads
-    val cypherRequest = url(baseURL + cypherEndpoint).POST <<
-      Json.prettyPrint(Json.toJson(cypherStatement)) <:<
-      headers
-    cypherRequest.setBodyEncoding(charset)
-    val result: Future[Res] = Http(cypherRequest.as_!(username, password))
+
+    val result = request.post(Json.toJson(cypherStatement)(csw))
+
     result.map { response =>
 
-      val strResult = response.getResponseBody(charset)
-      if (response.getStatusCode != 200) throw new RuntimeException(strResult)
+      val strResult = response.body
+      if (response.status != 200) throw new RuntimeException(strResult)
 
       val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
       val metaDataItems = cypherRESTResult.columns.map {
@@ -52,8 +53,8 @@ class Neo4jREST(val host: String = "localhost", val port: Int = 7474, val path: 
 
 object Neo4jREST {
   def apply(host: String = "localhost", port: Int = 7474, path: String = "/db/data/",
-            username: String = "", password: String = "", cypherEndpoint: String = "cypher", https: Boolean = false) =
-    new Neo4jREST(host, port, path, username, password, cypherEndpoint, https)
+            username: String = "", password: String = "", cypherEndpoint: String = "cypher", https: Boolean = false)(implicit wsclient: WSClient) =
+    new Neo4jREST(wsclient, host, port, path, username, password, cypherEndpoint, https)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {
@@ -66,12 +67,12 @@ object Neo4jREST {
         k -> ns.asInstanceOf[Seq[JsNumber]].map(_.value)
       case (k, JsArray(ss)) if (ss.forall(_.isInstanceOf[JsString])) =>
         k -> ss.asInstanceOf[Seq[JsString]].map(_.value)
-      case (k, JsObject(o)) => k -> read(o)
+      case (k, JsObject(o)) => k -> read(o.toSeq)
       case _ => throw new RuntimeException(s"unsupported type")
     }).toMap
 
     def reads(json: JsValue) = json match {
-      case JsObject(xs) => JsSuccess(read(xs))
+      case JsObject(xs) => JsSuccess(read(xs.toSeq))
       case x => JsError(s"json not of type Map[String, Any]: $x")
     }
 

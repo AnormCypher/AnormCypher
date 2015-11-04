@@ -1,14 +1,6 @@
-package org.anormcyphertest
+package org.anormcypher
 
-import org.scalatest._
-import org.scalatest.matchers._
-import org.anormcypher._
-import org.anormcypher.Neo4jREST._
-import scala.collection.JavaConverters._
-
-class AnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach {
-  implicit val connection = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))
-
+class AnormCypherSpec extends BaseAnormCypherSpec {
   override def beforeEach() = {
     // initialize some test data
     Cypher("""create 

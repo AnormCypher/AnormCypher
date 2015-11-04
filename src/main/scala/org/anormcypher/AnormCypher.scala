@@ -1,7 +1,7 @@
 package org.anormcypher
 
 import MayErr._
-import scala.concurrent.{Promise, ExecutionContext, Future}
+import scala.concurrent._, duration._
 import scala.reflect.ClassTag
 
 abstract class CypherRequestError
@@ -129,7 +129,7 @@ object Column {
       (Right(None): MayErr[CypherRequestError, Option[A]])
   }
 
-  import util.control.Exception.allCatch
+  import scala.util.control.Exception.allCatch
 
   def checkSeq[A : ClassTag](seq: Seq[Any], meta: MetaDataItem)(mapFun: (Any) => A): MayErr[CypherRequestError, Seq[A]] = {
     allCatch.either {
@@ -349,44 +349,17 @@ case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRo
   override def toString() = s"CypherResultRow(${metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ")})"
 }
 
-object Useful {
-
-  case class Var[T](var content: T)
-
-  def drop[A](these: Var[Stream[A]], n: Int): Stream[A] = {
-    var count = n
-    while (!these.content.isEmpty && count > 0) {
-      these.content = these.content.tail
-      count -= 1
-    }
-    these.content
-  }
-
-  def unfold1[T, R](init: T)(f: T => Option[(R, T)]): (Stream[R], T) = f(init) match {
-    case None => (Stream.Empty, init)
-    case Some((r, v)) => (Stream.cons(r, unfold(v)(f)), v)
-  }
-
-  def unfold[T, R](init: T)(f: T => Option[(R, T)]): Stream[R] = f(init) match {
-    case None => Stream.Empty
-    case Some((r, v)) => Stream.cons(r, unfold(v)(f))
-  }
-
-}
-
 case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
-  def apply()(implicit connection: Neo4jREST): Stream[CypherResultRow] = {
-    import dispatch._
-    val res = connection.sendQuery(this)
-    res()
-  }
+  def apply()(implicit connection: Neo4jREST, ec: ExecutionContext): Stream[CypherResultRow] =
+    Await.result(async(), 30.seconds)
 
-  def async()(implicit connection: Neo4jREST): Future[Stream[CypherResultRow]] = connection.sendQuery(this)
+  def async()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Stream[CypherResultRow]] =
+    connection.sendQuery(this)
 
   def on(args: (String, Any)*) = this.copy(params = params ++ args)
 
-  def execute()(implicit connection: Neo4jREST): Boolean = {
+  def execute()(implicit connection: Neo4jREST, ec: ExecutionContext): Boolean = {
     var retVal = true
     try {
       // throws an exception on a query that doesn't succeed.
@@ -397,17 +370,17 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
     retVal
   }
 
-  def as[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST): T = {
+  def as[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST, ec: ExecutionContext): T = {
     Cypher.as[T](parser, apply())
   }
 
-  def list[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): Seq[A] = as(rowParser.*)
+  def list[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Seq[A] = as(rowParser.*)
 
-  def single[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): A = as(CypherResultSetParser.single(rowParser))
+  def single[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): A = as(CypherResultSetParser.single(rowParser))
 
-  def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
+  def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-  def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST): T = Cypher.parse[T](parser, apply())
+  def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST, ec: ExecutionContext): T = Cypher.parse[T](parser, apply())
 
   def executeAsync()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Boolean] = {
     val p = Promise[Boolean]()

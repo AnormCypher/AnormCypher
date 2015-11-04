@@ -11,7 +11,7 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-Version 0.6 has a concept of connections (small breaking API change), to allow multiple Neo4j servers to be used in the same project.
+The latest release is 0.7.1.  Version 0.7.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -23,6 +23,8 @@ If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
 Switch to an empty folder and create a build.sbt file with the following:
 ``` Scala
+scalaVersion := "2.11.6"
+
 resolvers ++= Seq(
   "anormcypher" at "http://repo.anormcypher.org/",
   "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
@@ -30,18 +32,27 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.6.0"
+  "org.anormcypher" %% "anormcypher" % "0.7.1"
 )
 ```
 
-Run `sbt console`
+Run `sbt test:console`
+
+Note that async http client shipps with default logging level DEBUG.  In src/test/resources we include a logback-test.xml configuration that reduces the logging output.  If you want to see the details of the http client, you can simply run `sbt console` which won't include test-classes on the classpath.
 
 Assuming you have a local Neo4j Server running on the default port, try (note: this will create nodes on your database):
 ``` Scala
 import org.anormcypher._
+import play.api.libs.ws._
+
+// Provide an instance of WSClient
+val wsclient = ning.NingWSClient()
 
 // Setup the Rest Client
-implicit val connection = Neo4jREST()
+implicit val connection = Neo4jREST()(wsclient)
+
+// Provide an ExecutionContext
+implicit val ec = scala.concurrent.ExecutionContext.global
 
 // create some test nodes
 Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
@@ -54,6 +65,9 @@ val stream = req()
 
 // get the results and put them into a list
 stream.map(row => {row[String]("n.name")}).toList
+
+// shut down WSClient
+wsclient.close()
 ```
 
 ## Usage
@@ -64,6 +78,10 @@ The default is localhost, but you can specify a special server when your app is 
 options.
 ``` Scala
 import org.anormcypher._
+import play.api.libs.ws._
+
+// Provide an instance of WSClient
+implicit val wsclient = ning.NingWSClient()
 
 // without auth
 implicit val connection = Neo4jREST("localhost", 7474, "/db/data/")
@@ -86,6 +104,10 @@ First, `import org.anormcypher._`, setup an implicit Neo4jREST instance, and the
 
 ``` Scala
 import org.anormcypher._ 
+import play.api.libs.ws._
+
+// Provide an instance of WSClient
+implicit val wsclient = ning.NingWSClient()
 implicit val connection = Neo4jREST()
 
 val result: Boolean = Cypher("START n=node(0) RETURN n").execute()
