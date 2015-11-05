@@ -2,7 +2,7 @@ language: scala
 scala:
   - "2.11.0"
 jdk:
-  - oraclejdk7
+  - oraclejdk8
   
 env:
   - NEO_VERSION="2.1.6"
