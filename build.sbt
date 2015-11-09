@@ -1,7 +1,7 @@
 name := "AnormCypher"
  
-version := "0.7.1"
- 
+version := "0.8.0"
+
 publishMavenStyle := true
 
 organization := "org.anormcypher"
@@ -14,6 +14,8 @@ scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feat
 
 resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
+resolvers += "Bintray" at "http://dl.bintray.com/typesafe/maven-releases/com/typesafe/play/extras/"
+
 parallelExecution in Test := false
 
 val playVersion = "2.4.3"
@@ -22,6 +24,8 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "com.typesafe.play" %% "play-json" % playVersion,
   "com.typesafe.play" %% "play-ws" % playVersion,
+  "com.typesafe.play" %% "play-iteratees" % playVersion,
+  "com.typesafe.play.extras" %% "iteratees-extras" % "1.5.0",
   "org.scala-lang.modules" %% "scala-async" % "0.9.2"
 )
 

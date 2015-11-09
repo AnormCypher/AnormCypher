@@ -1,5 +1,6 @@
 package org.anormcypher
 
+import play.api.libs.iteratee._
 import play.api.libs.json._, Json._
 import play.api.libs.ws._
 import scala.concurrent._
@@ -13,7 +14,7 @@ class Neo4jREST(wsclient: WSClient,
     "Accept" -> "application/json",
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.7.0"
+    "User-Agent" -> "AnormCypher/0.8.0"
   )
 
   private val baseURL = {
@@ -22,33 +23,43 @@ class Neo4jREST(wsclient: WSClient,
     s"$protocol://$host:$port/$pth"
   }
 
+  private val cypherUrl = baseURL + cypherEndpoint
+
   private def request = {
-    val req = wsclient.url(baseURL + cypherEndpoint).withHeaders(headers:_*)
+    val req = wsclient.url(cypherUrl).withHeaders(headers:_*)
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Stream[CypherResultRow]] = {
-    implicit val csw = Neo4jREST.cypherStatementWrites
-    implicit val csr = Neo4jREST.cypherRESTResultReads
+  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+      query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
+// {
+    // val result = request.post(Json.toJson(cypherStatement)(csw))
 
-    val result = request.post(Json.toJson(cypherStatement)(csw))
+    // result.map { response =>
 
-    result.map { response =>
+    //   val strResult = response.body
+    //   if (response.status != 200) throw new RuntimeException(strResult)
 
-      val strResult = response.body
-      if (response.status != 200) throw new RuntimeException(strResult)
+    //   val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
+    //   val metaDataItems = cypherRESTResult.columns.map {
+    //     c => MetaDataItem(c, false, "String")
+    //   }.toList
+    //   val metaData = MetaData(metaDataItems)
+    //   val data = cypherRESTResult.data.map {
+    //     d => CypherResultRow(metaData, d.toList)
+    //   }.toStream
+    //   data
+    // }
+//  }
 
-      val cypherRESTResult = Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
-      val metaDataItems = cypherRESTResult.columns.map {
-        c => MetaDataItem(c, false, "String")
-      }.toList
-      val metaData = MetaData(metaDataItems)
-      val data = cypherRESTResult.data.map {
-        d => CypherResultRow(metaData, d.toList)
-      }.toStream
-      data
-    }
+  def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
+    import play.api.http._
+
+    val req = wsclient.url(cypherUrl).withMethod(HttpVerbs.POST)
+    val source = req.withBody(Json.toJson(stmt)(Neo4jREST.cypherStatementWrites)).stream()
+    Enumerator.flatten(source map { case (header, body) => Neo4jStream.parse(body) })
   }
+
 }
 
 object Neo4jREST {
