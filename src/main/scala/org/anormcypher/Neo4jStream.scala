@@ -2,17 +2,7 @@ package org.anormcypher
 
 import play.api.libs.iteratee._
 import play.api.libs.json._
-import play.api.libs.ws._
 import scala.concurrent._
-
-/**
- * Asynchronous, streaming (i.e. reactive) api to neo4j rest service.
- *
- * Parses REST response from Neo4j server using Play's Iteratee API.
- */
-trait Neo4jStream {
-  def sendQuery(wsclient: WSClient)(stmt: CypherStatement): Enumerator[CypherResultRow]
-}
 
 // TODO: handle error response e.g. error in cypher statement
 /** Iteratee parsers for Neo4j json response */
