@@ -149,7 +149,10 @@ object Neo4jREST {
 
   def asNode(msa: Map[String, Any]): MayErr[CypherRequestError, NeoNode] = (msa.get("self"), msa.get("data")) match {
     case (Some(IdURLExtractor(id)), Some(props: Map[_, _])) if props.keys.forall(_.isInstanceOf[String]) =>
-      Right(NeoNode(id, props.asInstanceOf[Map[String, Any]]))
+      Right(NeoNode(id, props.asInstanceOf[Map[String, Any]],
+        // add the labels metadata
+        msa.get("metadata").asInstanceOf[Some[Map[String,Any]]].get("labels").asInstanceOf[Seq[String]]
+      ))
     case x => Left(TypeDoesNotMatch("Unexpected type while building a Node"))
   }
 
@@ -164,6 +167,9 @@ object Neo4jREST {
 
 case class CypherRESTResult(columns: Vector[String], data: Seq[Seq[Any]])
 
-case class NeoNode(id: Long, props: Map[String, Any])
+case class NeoNode(id: Long, props: Map[String, Any], labels: Seq[String])
+object NeoNode {
+  def apply(id: Long, props: Map[String, Any]): NeoNode = NeoNode(id, props, Nil)
+}
 
 case class NeoRelationship(id: Long, props: Map[String, Any], start: Long, end: Long)
