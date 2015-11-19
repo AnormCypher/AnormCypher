@@ -27,59 +27,52 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   override def afterEach() = {
     // delete the test data
-    Cypher("""match (n)
-      where n.tag = "anormcyphertest"
-      optional match n-[r]-()
-      delete n, r;
-      """).apply()
+    Cypher("""MATCH (n) WHERE n.tag = "anormcyphertest"
+      OPTIONAL MATCH n-[r]-()
+      DELETE n, r""").apply()
   }
 
   "Cypher" should "be able to build a CypherStatement with apply" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
+    val query = "START n = node(*) RETURN n"
     Cypher(query) should equal (CypherStatement(query))
   } 
 
   it should "be able to make a query without parameters" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
+    val query = "START n = node(*) RETURN n"
     CypherStatement(query)()
   }
 
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
-      START n=node(*) 
-      where n.name = 'proptest'
-      RETURN n;
-      """
+      START n = node(*) 
+      WHERE n.name = 'proptest'
+      RETURN n"""
     Cypher(query).async().futureValue.size should equal (1)
   }
 
   it should "be able to add parameters with .on()" in {
     val query = """
-      start n=node({id}) 
-      where n.name = {test} 
-      return n;
-      """
+      START n = node({id}) 
+      WHERE n.name = {test} 
+      RETURN n"""
     Cypher(query).on("id"->0, "test"->"hello") should equal (
       CypherStatement(query, Map("id"->0, "test"->"hello")))
   }
 
   it should "be able to send a query and map the results to a list" in {
     val allCountries = Cypher("""
-      start n=node(*) 
-      where n.type = "Country"
+      START n = node(*) 
+      WHERE n.type = "Country"
       and n.tag = "anormcyphertest"
-      return n.code as code, n.name as name 
-      order by name desc;
-      """)
-    val countries = allCountries.async().futureValue.map(row =>
-      row[String]("code") -> row[String]("name")
-    ).toList
+      RETURN n.code AS code, n.name AS name 
+      order by name desc""")
+    val countries = allCountries.
+                      async().
+                      futureValue.
+                      map { row =>
+                        row[String]("code") -> row[String]("name")
+                      }.
+                      toList
     countries should equal (
       List("USA" -> "United States",
            "MCO" -> "Monaco",
@@ -90,10 +83,9 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to submit a few requests in a row" in {
     val query = """
-      START n=node(*) 
-      where n.tag = "anormcyphertest"
-      RETURN n;
-      """
+      START n = node(*) 
+      WHERE n.tag = "anormcyphertest"
+      RETURN n"""
     val test = Cypher(query).async().futureValue
     Cypher(query).async().futureValue should equal (test)
     Cypher(query).async().futureValue should equal (test)
@@ -103,10 +95,9 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to extract properties of different types" in {
     val allProps = Cypher("""
-      start n=node(*) 
-      where n.name = "proptest"
-      return n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf;
-      """)
+      START n = node(*) 
+      WHERE n.name = "proptest"
+      RETURN n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf""")
     val props = allProps.async().futureValue.map(row =>
       List(
         row[Int]("n.i"), 
@@ -133,44 +124,38 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
   }
 
   it should "be able to .execute() a good query" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
+    val query = "START n = node(*) RETURN n"
     Cypher(query).executeAsync().futureValue should equal (true)
   }
 
   it should "be able to .execute() a bad query" in {
-    val query = """
-      START n=node(0) asdf 
-      RETURN n;
-      """
+    val query = "START n = node(0) asdf RETURN n"
     Cypher(query).executeAsync().futureValue  should equal (false)
   }
 
   it should "be able to parse nullable fields of various types" in {
     val query = """
-      START n=node(*)
+      START n = node(*)
       WHERE n.type = 'Country'
-      RETURN n.indepYear as indepYear
-      order by n.indepYear
+      RETURN n.indepYear AS indepYear
+      ORDER BY n.indepYear
       """
-    val results = Cypher(query).async().futureValue.map {
-      row => row[Option[Int]]("indepYear")
-    }.toList
+    val results = Cypher(query).
+                    async().
+                    futureValue.
+                    map(_[Option[Int]]("indepYear")).
+                    toList
     results should equal (List(Some(1789),None, None, None))
   }
 
   it should "fail on null fields if they're not Option" in {
     val query = """
-      START n=node(*)
+      START n = node(*)
       WHERE n.type = 'Country'
-      RETURN n.indepYear as indepYear;
+      RETURN n.indepYear AS indepYear;
       """
     intercept[RuntimeException] {
-      Cypher(query).async().futureValue.map {
-        row => row[Int]("indepYear")
-      }
+      Cypher(query).async().futureValue.map(_[Int]("indepYear"))
     }
   }
 

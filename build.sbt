@@ -1,6 +1,6 @@
-name := "AnormCypher"
+name := "RiskSense-AnormCypher"
  
-version := "0.7.1"
+version := "0.7.2"
  
 publishMavenStyle := true
 
@@ -8,7 +8,7 @@ organization := "org.anormcypher"
 
 publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
@@ -19,10 +19,10 @@ parallelExecution in Test := false
 val playVersion = "2.4.3"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-  "com.typesafe.play" %% "play-json" % playVersion,
-  "com.typesafe.play" %% "play-ws" % playVersion,
-  "org.scala-lang.modules" %% "scala-async" % "0.9.2"
+  "com.typesafe.play"        %% "play-json"     % playVersion,
+  "com.typesafe.play"        %% "play-ws"       % playVersion,
+  "org.scalatest"            %% "scalatest"     % "2.2.4" % "test",
+  "org.scala-lang.modules"   %% "scala-async"   % "0.9.5"
 )
 
 seq(lsSettings :_*)

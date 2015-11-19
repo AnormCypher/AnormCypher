@@ -3,7 +3,7 @@ package org.anormcypher
 class AnormCypherSpec extends BaseAnormCypherSpec {
   override def beforeEach() = {
     // initialize some test data
-    Cypher("""create 
+    Cypher("""CREATE 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
@@ -26,16 +26,15 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   override def afterEach() = {
     // delete the test data
-    Cypher("""match (n)
-      where n.tag = "anormcyphertest"
-      optional match n-[r]-()
-      delete n, r;
-      """)()
+    Cypher("""
+      MATCH (n) WHERE n.tag = "anormcyphertest"
+      OPTIONAL MATCH n-[r]-()
+      DELETE n, r""")()
   }
 
   "Cypher" should "be able to build a CypherStatement with apply" in {
     val query = """
-      START n=node(*) 
+      START n = node(*) 
       RETURN n;
       """
     Cypher(query) should equal (CypherStatement(query))
@@ -43,7 +42,7 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to make a query without parameters" in {
     val query = """
-      START n=node(*) 
+      START n = node(*) 
       RETURN n;
       """
     CypherStatement(query)()
@@ -51,8 +50,8 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
-      START n=node(*) 
-      where n.name = 'proptest'
+      START n = node(*) 
+      WHERE n.name = 'proptest'
       RETURN n;
       """
     Cypher(query)().size should equal (1)
@@ -60,9 +59,9 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to add parameters with .on()" in {
     val query = """
-      start n=node({id}) 
-      where n.name = {test} 
-      return n;
+      START n = node({id}) 
+      WHERE n.name = {test} 
+      RETURN n;
       """
     Cypher(query).on("id"->0, "test"->"hello") should equal (
       CypherStatement(query, Map("id"->0, "test"->"hello")))
@@ -70,11 +69,10 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to send a query and map the results to a list" in {
     val allCountries = Cypher("""
-      start n=node(*) 
-      where n.type = "Country"
-      and n.tag = "anormcyphertest"
-      return n.code as code, n.name as name 
-      order by name desc;
+      START n = node(*) 
+      WHERE n.type = "Country" AND n.tag = "anormcyphertest"
+      RETURN n.code AS code, n.name AS name 
+      ORDER BY name DESC;
       """)
     val countries = allCountries().map(row => 
       row[String]("code") -> row[String]("name")
@@ -89,8 +87,8 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to submit a few requests in a row" in {
     val query = """
-      START n=node(*) 
-      where n.tag = "anormcyphertest"
+      START n = node(*) 
+      WHERE n.tag = "anormcyphertest"
       RETURN n;
       """
     val test = Cypher(query)()
@@ -102,9 +100,9 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to extract properties of different types" in {
     val allProps = Cypher("""
-      start n=node(*) 
-      where n.name = "proptest"
-      return n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf;
+      START n = node(*) 
+      WHERE n.name = "proptest"
+      RETURN n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf;
       """)
     val props = allProps().map(row => 
       List(
@@ -133,7 +131,7 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to .execute() a good query" in {
     val query = """
-      START n=node(*) 
+      START n = node(*) 
       RETURN n;
       """
     Cypher(query).execute() should equal (true)
@@ -141,7 +139,7 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to .execute() a bad query" in {
     val query = """
-      START n=node(0) asdf 
+      START n = node(0) asdf 
       RETURN n;
       """
     Cypher(query).execute()  should equal (false)
@@ -149,10 +147,10 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "be able to parse nullable fields of various types" in {
     val query = """
-      START n=node(*)
+      START n = node(*)
       WHERE n.type = 'Country'
-      RETURN n.indepYear as indepYear
-      order by n.indepYear
+      RETURN n.indepYear AS indepYear
+      ORDER BY n.indepYear
       """
     val results = Cypher(query)().map {
       row => row[Option[Int]]("indepYear")
@@ -162,9 +160,9 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
 
   it should "fail on null fields if they're not Option" in {
     val query = """
-      START n=node(*)
+      START n = node(*)
       WHERE n.type = 'Country'
-      RETURN n.indepYear as indepYear;
+      RETURN n.indepYear AS indepYear;
       """
     intercept[RuntimeException] {
       Cypher(query)().map {
