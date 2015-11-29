@@ -38,7 +38,7 @@ class Neo4jREST(wsclient: WSClient,
   def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
     import play.api.http._
 
-    val req = wsclient.url(cypherUrl).withMethod(HttpVerbs.POST)
+    val req = request.withMethod(HttpVerbs.POST)
     val source = req.withBody(Json.toJson(stmt)(Neo4jREST.cypherStatementWrites)).stream()
     Enumerator.flatten(source map { case (header, body) => Neo4jStream.parse(body) })
   }
