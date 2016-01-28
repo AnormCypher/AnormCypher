@@ -438,7 +438,7 @@ $ spokenLanguages("FRA")
 ```
 
 ## Contributors
-* Wes Freeman: [@wfreeman](https://github.com/wfreeman) on github
+* Eve Freeman: [@freeeve](https://github.com/freeeve) on github
 * Jason Jackson: [@jasonjackson](https://github.com/jasonjackson) on github
 * Julien Sirocchi: [@sirocchj](https://github.com/sirocchj) on github
 * Pieter-Jan Van Aeken: [@PieterJanVanAeken](https://github.com/PieterJanVanAeken) on github
