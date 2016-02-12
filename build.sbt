@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.8.0"
+version := "0.8.1"
 
 publishMavenStyle := true
 
@@ -38,3 +38,21 @@ seq(lsSettings :_*)
 
 (description in LsKeys.lsync) :=
   "A Neo4j library modeled after Play's Anorm."
+
+initialCommands in console := """
+import org.anormcypher._
+import play.api.libs.ws._
+
+// Provide an instance of WSClient
+val wsclient = ning.NingWSClient()
+
+// Setup the Rest Client
+implicit val connection = Neo4jREST()(wsclient)
+
+// Provide an ExecutionContext
+implicit val ec = scala.concurrent.ExecutionContext.global
+"""
+
+cleanupCommands in console := """
+wsclient.close()
+"""
