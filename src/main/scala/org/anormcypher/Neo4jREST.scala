@@ -40,7 +40,13 @@ class Neo4jREST(wsclient: WSClient,
 
     val req = request.withMethod(HttpVerbs.POST)
     val source = req.withBody(Json.toJson(stmt)(Neo4jREST.cypherStatementWrites)).stream()
-    Enumerator.flatten(source map { case (header, body) => Neo4jStream.parse(body) })
+
+    Enumerator.flatten(source map { case (resp, body) =>
+      if (resp.status == 400)
+        Neo4jStream.errMsg(body)
+      else
+        Neo4jStream.parse(body)
+    })
   }
 
 }

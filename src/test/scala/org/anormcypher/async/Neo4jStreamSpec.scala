@@ -62,4 +62,14 @@ class Neo4jStreamSpec extends FlatSpec with Matchers with ScalaFutures {
     Await.ready(f, patienceConfig.timeout)
     f.value.get shouldBe 'Failure
   }
+
+  it should "extract the 'message' portion from an neo4j error response" in {
+    val msg = "monkeys don't twiddle existential thumbs like the Prince of Denmark"
+    val json = s"""{"exception": "Syntax Exception", "message": "$msg"}"""
+    val f = Neo4jStream.errMsg(chunking(json)) |>>> Iteratee.getChunks[String]
+    Await.ready(f, patienceConfig.timeout)
+    val res = f.value.get
+    res shouldBe 'Failure
+    res.failed.get.getMessage shouldBe msg
+  }
 }

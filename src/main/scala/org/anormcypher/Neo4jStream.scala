@@ -4,7 +4,6 @@ import play.api.libs.iteratee._
 import play.api.libs.json._
 import scala.concurrent._
 
-// TODO: handle error response e.g. error in cypher statement
 /** Iteratee parsers for Neo4j json response */
 object Neo4jStream {
   import play.extras.iteratees._, JsonParser._, JsonIteratees._, Combinators._
@@ -16,7 +15,6 @@ object Neo4jStream {
    * returns the following array content as meta data.
    */
   // TODO: match string "columns"
-  // TODO: handle json parse error
   def columns(implicit ec: ExecutionContext): Iteratee[CharString, MetaData] = for {
     _ <- skipWhitespace
     _ <- expect('{');      _ <- skipWhitespace
@@ -46,7 +44,6 @@ object Neo4jStream {
    * An empty list is also returned on any non-array starting char where
    * an open bracket is expected.
    */
-  // TODO: handle json parse error
   def row(implicit ec: ExecutionContext): Iteratee[CharString, Seq[Any]] = for {
     ch <- peekOne
     result <- ch match {
@@ -72,5 +69,23 @@ object Neo4jStream {
     }
 
     Enumerator.flatten(futEnumer)
+  }
+
+  /**
+   * Turns a neo4j error response into an Error iteratee, containing
+   * the 'message' portion of the original neo4j error response
+   */
+  def errMsg[A](source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext):
+      Enumerator[A] = new Enumerator[A] {
+    override def apply[B](i: Iteratee[A, B]): Future[Iteratee[A, B]] = {
+      (source &> Encoding.decode() |>>> JsonIteratees.jsSimpleObject) map { obj =>
+        val msg = obj.value.get("message") match {
+          case None => ""
+          case Some(JsString(v)) => v
+          case Some(jsv) => jsv.toString
+        }
+        play.api.libs.iteratee.Error(msg, Input.EOF)
+      }
+    }
   }
 }
