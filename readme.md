@@ -11,7 +11,7 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-The latest release is 0.7.1.  Version 0.7.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+The latest release is 0.8.1.  Version 0.8.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -32,7 +32,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.7.1"
+  "org.anormcypher" %% "anormcypher" % "0.8.1"
 )
 ```
 
