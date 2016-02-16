@@ -14,7 +14,7 @@ class Neo4jREST(wsclient: WSClient,
     "Accept" -> "application/json",
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.8.0"
+    "User-Agent" -> "AnormCypher/0.8.1"
   )
 
   private val baseURL = {
