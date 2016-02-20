@@ -382,14 +382,11 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
   def apply()
       (implicit connection: Neo4jREST, ec: ExecutionContext):
-    Stream[CypherResultRow] =
-    Await.result(async(), 30.seconds)
+    Seq[CypherResultRow] = Await.result(async(), 30.seconds)
 
   def async()
       (implicit connection: Neo4jREST, ec: ExecutionContext):
-    Future[Stream[CypherResultRow]] = {
-    connection.sendQuery(this)
-  }
+    Future[Seq[CypherResultRow]] = connection.sendQuery(this)
 
   def on(args: (String, Any)*): CypherStatement = {
     this.copy(params = params ++ args)
@@ -489,25 +486,30 @@ object Cypher {
   def as[T](
       parser: CypherResultSetParser[T],
       rs: Future[Stream[CypherResultRow]])
-    (implicit ec: ExecutionContext): Future[T] = rs.map { as(parser,_) }
+      (implicit ec: ExecutionContext): Future[T] = rs.map { as(parser,_) }
 
   def as[T](
       parser: CypherResultSetParser[T],
-      rs: Stream[CypherResultRow]): T = parser(rs) match {
+      rs: Future[Seq[CypherResultRow]])
+      (implicit ec: ExecutionContext): Future[T] = rs.map { as(parser,_) }
+
+  def as[T](
+      parser: CypherResultSetParser[T],
+      rs: Seq[CypherResultRow]): T = parser(rs) match {
     case Success(a) => a
     case Error(e) => sys.error(e.toString)
   }
 
   def parse[T](
       parser: CypherResultSetParser[T],
-      rs: Future[Stream[CypherResultRow]])
-    (implicit ec: ExecutionContext): Future[T] = rs.map {
-    parse[T](parser,_)
+      rs: Future[Seq[CypherResultRow]])
+      (implicit ec: ExecutionContext): Future[T] = rs.map { s =>
+    parse[T](parser,s)
   }
 
   def parse[T](
       parser: CypherResultSetParser[T],
-      rs: Stream[CypherResultRow]): T = parser(rs) match {
+      rs: Seq[CypherResultRow]): T = parser(rs) match {
     case Success(a) => a
     case Error(e) => sys.error(e.toString)
   }

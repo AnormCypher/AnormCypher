@@ -11,7 +11,7 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-The latest release is 0.7.1.  Version 0.7.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+The latest release is 0.8.1.  Version 0.8.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -32,7 +32,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.7.1"
+  "org.anormcypher" %% "anormcypher" % "0.8.1"
 )
 ```
 
@@ -178,6 +178,55 @@ val firstRow = Cypher("start n=node(*) where n.type = 'Country' return count(n) 
 val countryCount = firstRow[Long]("c")
 // countryCount: Long = 3
 ```
+
+### Reactive Streaming
+Occasionally we need to handle a very large data set returned from the Neo4j server -- a dataset so large that it would exhaust the JVM's heap space if the entire server response were read in before being processed.  There might be situations where we cannot avoid loading the entire data set; in such cases the only solution would be increasing the maximum heap size and running the program on a machine with more memory.  However, most of the time, processing could start without having the complete data set.  For example, if all we have to do is to perform some transformation on each CypherResultRow and then stream the data to the client, there is no reason to wait till we have received all the data from the server; we can use reactive streaming to start working as soon as we receive one CypherResultRow.
+
+AnormCypher uses Play's Enumerator|Iteratee [API](https://www.playframework.com/documentation/2.4.x/Enumerators) to achieve reactive streaming.  Specifically, the Neo4jREST class provides the `query` method with the following signature:
+
+
+``` Scala
+import play.api.libs.iteratee._
+
+class Neo4jREST(...) {
+  /** Asynchornous, streaming (i.e. reactive) query */
+  def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = ...
+  ...
+}
+
+```
+
+while another method, `sendQuery`, consumes the reactive stream (`Enumerator[CypherResultRow]`) produced by this method and returns the entire response as a Sequence, asynchronously
+
+``` Scala
+class Neo4jREST(...) {
+  /** Asynchronous, non-streaming query */
+  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+      query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
+}
+```
+
+The `sendQuery` method keeps the original method signature (including parameter names) to maintain backwards compatibility.  But its implementation has been rewritten to reuse the `query` method by use of the `getChunks` factory method in Play's Iteratee object.
+
+One obvious gain is that, if you are using Play for the web front end, and Neo4j as the data store, you can now stream cypher result sets directly to the browsing client using AnomrCypher as a bridge.
+
+``` Scala
+object MyController extends Controller {
+  def allNodes: Enumerator[CypherResultRow] = neo4jconn.query(CypherStatement("match n return n"))
+
+  def stream = Action {
+	  Ok.chunked(allNodes map (_.toString))
+  }
+
+  import akka.stream.scaladsl.Source
+  import play.api.libs.streams.Streams
+  def akkaStream = Action {
+    Ok.chunked(Source(Streams.enumeratorToPublisher(allNodes map (_.toString))))
+  }
+}
+```
+
+Consult [James Roper's article](https://jazzy.id.au/2012/11/06/iteratees_for_imperative_programmers.html) for a good introduction to Enumerator and Iteratee and to the problems they are designed to solve.
 
 ### Using Pattern Matching
 You can also use Pattern Matching to match and extract the CypherRow content. In this case the column name doesn’t matter. Only the order and the type of the parameters is used to match.
@@ -438,7 +487,7 @@ $ spokenLanguages("FRA")
 ```
 
 ## Contributors
-* Wes Freeman: [@wfreeman](https://github.com/wfreeman) on github
+* Eve Freeman: [@freeeve](https://github.com/freeeve) on github
 * Jason Jackson: [@jasonjackson](https://github.com/jasonjackson) on github
 * Julien Sirocchi: [@sirocchj](https://github.com/sirocchj) on github
 * Pieter-Jan Van Aeken: [@PieterJanVanAeken](https://github.com/PieterJanVanAeken) on github

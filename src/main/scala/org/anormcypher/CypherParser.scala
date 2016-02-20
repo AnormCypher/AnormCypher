@@ -7,7 +7,7 @@ object CypherParser {
   import MayErr._
   import java.util.Date
 
-  type CypherResultSet = Stream[CypherRow]
+  type CypherResultSet = Seq[CypherRow]
 
   def scalar[T](implicit transformer: Column[T]): CypherRowParser[T] = {
     CypherRowParser[T] { row =>
@@ -206,12 +206,10 @@ object CypherResultSetParser {
     @scala.annotation.tailrec
     def sequence(
         results: CypherResult[List[A]],
-        rows: Stream[CypherRow]): CypherResult[List[A]] = {
-      (results, rows) match {
-        case (Success(rs), row #:: tail) =>
-          sequence(p(row).map(_ +: rs), tail)
-        case (r, _) => r
-      }
+        rows: Seq[CypherRow]): CypherResult[List[A]] = (results, rows) match {
+      case (Success(rs), Seq(row, tail @ _ *)) =>
+        sequence(p(row).map(_ +: rs), tail)
+      case (r, _) => r
     }
 
     CypherResultSetParser { rows =>
@@ -232,21 +230,21 @@ object CypherResultSetParser {
 
   def single[A](p: CypherRowParser[A]): CypherResultSetParser[A] = {
     CypherResultSetParser {
-      case head #:: Stream.Empty => p(head)
-      case Stream.Empty => Error(
-          CypherMappingError("No rows when expecting a single one"))
-      case _ => Error(
-          CypherMappingError("too many rows when expecting a single one"))
+      case Seq(head) => p(head)
+      case Seq() =>
+        Error(CypherMappingError("No rows when expecting a single one"))
+      case _ =>
+        Error(CypherMappingError("too many rows when expecting a single one"))
     }
   }
 
   def singleOpt[A](
       p: CypherRowParser[A]): CypherResultSetParser[Option[A]] = {
     CypherResultSetParser {
-      case head #:: Stream.Empty => p.map(Some(_))(head)
-      case Stream.Empty => Success(None)
-      case _ => Error(
-          CypherMappingError("too many rows when expecting a single one"))
+      case Seq(head) => p.map(Some(_))(head)
+      case Seq() => Success(None)
+      case _ =>
+        Error(CypherMappingError("too many rows when expecting a single one"))
     }
   }
 

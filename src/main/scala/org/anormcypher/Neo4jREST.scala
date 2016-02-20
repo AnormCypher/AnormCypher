@@ -20,6 +20,8 @@ import play.api.libs.json.JsBoolean
 import play.api.libs.json.Format
 import play.api.libs.json.Json
 import play.api.libs.json.JsPath
+import play.api.libs.iteratee._
+//import play.api.libs.json._, Json._
 import play.api.libs.ws._
 
 
@@ -37,7 +39,7 @@ class Neo4jREST(
     "Accept" -> "application/json",
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.7.0"
+    "User-Agent" -> "AnormCypher/0.8.1"
   )
 
   private val baseURL = {
@@ -46,108 +48,39 @@ class Neo4jREST(
     s"$protocol://$host:$port/$pth"
   }
 
+  private val cypherUrl = baseURL + cypherEndpoint
+
   private def request = {
-    val req = wsclient.url(baseURL + cypherEndpoint).withHeaders(headers:_*)
+    val req = wsclient.url(cypherUrl).withHeaders(headers:_*)
     if (username.isEmpty) {
-      req 
+      req
     } else {
       req.withAuth(username, password, WSAuthScheme.BASIC)
     }
   }
 
-  private def otherRequest(ep: String) = {
-    val req = wsclient.url(baseURL + ep).withHeaders(headers:_*)
-    if (username.isEmpty) {
-      req 
-    } else {
-      req.withAuth(username, password, WSAuthScheme.BASIC)
-    }
-  }
+  /** Asynchronous, non-streaming query */
+  def sendQuery(cypherStatement: CypherStatement)
+      (implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+    query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
 
-  def sendQuery(
-      cypherStatement: CypherStatement)
-      (implicit ec: ExecutionContext): Future[Stream[CypherResultRow]] = {
+  /** Asynchornous, streaming (i.e. reactive) query */
+  def query(stmt: CypherStatement)
+      (implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
+    import play.api.http._
 
-    implicit val csw = Neo4jREST.cypherStatementWrites
-    implicit val csr = Neo4jREST.cypherRESTResultReads
+    val req = request.withMethod(HttpVerbs.POST)
+    val source = req.
+                   withBody(
+                     Json.toJson(stmt)(Neo4jREST.cypherStatementWrites)).
+                   stream()
 
-    val result = request.post(Json.toJson(cypherStatement)(csw))
-    result.map { response =>
-      val strResult = response.body
-      if (response.status != 200) {
-        throw new RuntimeException(strResult)
-      }
-      val cypherRESTResult =
-        Json.fromJson[CypherRESTResult](Json.parse(strResult)).get
-      val metaDataItems: List[MetaDataItem] = cypherRESTResult.
-          columns.
-          map {c => MetaDataItem(c, false, "String")}.
-          toList
-      val metaData = MetaData(metaDataItems)
-      cypherRESTResult.
-        data.
-        map { d => CypherResultRow(metaData, d.toList) }.
-        toStream
-    }
-  }
-
-  /** Sends Cypher data as a transaction
-    *
-    * A [[CypherTranscation]] is sent to a provided endpoint. The response
-    * contains the commit path if the request was made against a
-    * '/transaction' endpoint. The response contains an empty String if the
-    * request was made against a '/transaction/commit' endpoint.
-    *
-    * @param cypherTransaction a [[CypherTransaction]] object
-    * @param transactionEndpoint the Neo4j transaction endpoint
-    * @return a Future containing String response
-    */
-  def sendTransaction(
-      cypTrans: CypherTransaction,
-      transactionEndpoint: String)
-    (implicit ec: ExecutionContext): Future[String] = {
-    val result = otherRequest(transactionEndpoint).post(Json.toJson(cypTrans))
-    result.map { response =>
-      val strResult = response.body
-      if (response.status != 200 && response.status !=201) {
-        throw new RuntimeException(strResult)
-      }
-      val commitPath = (Json.parse(strResult) \ "commit").toOption
-      commitPath match {
-        case Some(cp) =>
-          println(s"Transaction '${cypTrans.name}' processed at $cp")
-          cp.toString()
-        case _ => println(s"Transaction '${cypTrans.name}' completed")
-          ""
-      }
-    }
-  }
-
-  /** Commits an open transaction
-    *
-    * Closes a transaction by sending an empty body request to '/commit'
-    * endpoint.
-    *
-    * @param transId the transaction id that needs to be closed
-    * @return Boolean representing if a transaction was successfully
-    * committed (response code 200) or not.
-    */
-  def commitTransaction(transId: String)
-      (implicit ec: ExecutionContext): Boolean = {
-    val commitEndpoint = "/commit"
-    val result = otherRequest("transaction" + transId + commitEndpoint).
-                   withMethod("POST").
-                   execute()
-    val res = result.map { response =>
-        val isCommitted = (response.status == 200)
-        if (isCommitted) {
-          println(s"Transaction $transId closed.")
-        } else {
-          println(s"Failed to close transaction $transId.")
-        }
-        isCommitted
-      }
-    Await.result(res, 10.seconds)
+    Enumerator.flatten(source map { case (resp, body) =>
+      if (resp.status == 400)
+        Neo4jStream.errMsg(body)
+      else
+        Neo4jStream.parse(body)
+    })
   }
 
 }

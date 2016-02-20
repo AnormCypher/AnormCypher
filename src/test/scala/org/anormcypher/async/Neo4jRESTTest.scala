@@ -1,6 +1,9 @@
 package org.anormcypher
 package async
 
+import scala.concurrent._, duration._
+import scala.util.Failure
+
 class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   override def beforeEach = {
     Cypher("""
@@ -133,4 +136,19 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
     res2(0) should equal(lm)
   }
 
+  it should "return the original neo4j error message" in {
+    val resp = CypherStatement("""
+    |match (m:Monkey)-[t:typewriter*]->(x)
+    | where x = contentsOf("Hamlet")
+    | return sum(t.years) / 100 as totalCenturiesTaken
+    |""".stripMargin).async
+
+    val res = Await.ready(resp, 3.seconds).value
+    res should not be 'Empty
+    res.get shouldBe 'Failure
+
+    val exception = res.get.failed.get
+    exception.getMessage.contains("Unknown function 'contentsOf'") shouldBe true
+    exception.isInstanceOf[RuntimeException] shouldBe true
+  }
 }
