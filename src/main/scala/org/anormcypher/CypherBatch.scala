@@ -3,7 +3,7 @@ package org.anormcypher
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
 /**
  * CypherBatch case class
@@ -15,7 +15,7 @@ case class CypherBatch(batch: Seq[CypherTransaction]) {
    */
   def execute()
       (implicit connection: Neo4jREST, ec: ExecutionContext): Boolean = {
-    var retVal = true
+    var retVal = true // scalastyle:ignore var.local
     try {
       val commitPath = executeTransaction(batch.head)
       val transId = CypherBatch.getTransactionId(commitPath)

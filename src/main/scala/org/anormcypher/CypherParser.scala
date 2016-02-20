@@ -2,20 +2,23 @@ package org.anormcypher
 
 import CypherParser.CypherResultSet
 
-object CypherParser {
+import MayErr.eitherToError
+import MayErr.errorToEither
 
-  import MayErr._
-  import java.util.Date
+import java.util.Date
+
+object CypherParser {
 
   type CypherResultSet = Seq[CypherRow]
 
   def scalar[T](implicit transformer: Column[T]): CypherRowParser[T] = {
     CypherRowParser[T] { row =>
-      (for {
+      val res = for {
         meta <- row.metaData.ms.headOption.toRight(NoColumnsInReturnedResult)
         value <- row.data.headOption.toRight(NoColumnsInReturnedResult)
         result <- transformer(value, meta)
-      } yield result).fold(e => Error(e), a => Success(a))
+      } yield result
+      res.fold(e => Error(e), a => Success(a))
     }
   }
 
@@ -56,23 +59,20 @@ object CypherParser {
       columnName: String)
       (implicit extractor: org.anormcypher.Column[T]): CypherRowParser[T] = {
     CypherRowParser { row =>
-
-      import MayErr._
-
-      (for {
+      val res = for {
         meta <- row.metaData.get(columnName)
           .toRight(ColumnNotFound(columnName, row.metaData.availableColumns))
         value <- row.get1(columnName)
         result <- extractor(value, MetaDataItem(meta._1, meta._2, meta._3))
-      } yield result).fold(e => Error(e), a => Success(a))
+      } yield result
+      res.fold(e => Error(e), a => Success(a))
     }
   }
 
   def contains[TT: Column, T <: TT](
       columnName: String, t: T): CypherRowParser[Unit] = {
     get[TT](columnName)(implicitly[Column[TT]])
-      .collect("CypherRow doesn't contain a column: " +
-               s"$columnName with value $t") {
+      .collect(s"CypherRow doesn't contain a column: $columnName with value $t") {
         case a if a == t => Unit
       }
   }
@@ -153,10 +153,11 @@ trait CypherRowParser[+A] extends (CypherRow => CypherResult[A]) {
       p: CypherRowParser[B]): CypherRowParser[B] = CypherRowParser { row =>
     parent(row) match {
       case Error(_) => p(row)
-      case a => a
+      case a: CypherResult[A] => a
     }
   }
 
+  // scalastyle:off disallow.space.before.token
   def ? : CypherRowParser[Option[A]] = CypherRowParser { row =>
     parent(row) match {
       case Success(a) => Success(Some(a))
@@ -171,6 +172,7 @@ trait CypherRowParser[+A] extends (CypherRow => CypherResult[A]) {
   def + : CypherResultSetParser[List[A]] = {
     CypherResultSetParser.nonEmptyList(parent)
   }
+  // scalastyle:off disallow.space.before.token
 
   // scalastyle:on method.name
 
@@ -234,7 +236,7 @@ object CypherResultSetParser {
       case Seq() =>
         Error(CypherMappingError("No rows when expecting a single one"))
       case _ =>
-        Error(CypherMappingError("too many rows when expecting a single one"))
+        Error(CypherMappingError("Too many rows when expecting a single one"))
     }
   }
 

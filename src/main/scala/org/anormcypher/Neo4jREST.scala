@@ -3,8 +3,9 @@ package org.anormcypher
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
+import play.api.http.HttpVerbs
 import play.api.libs.json.JsSuccess
 import play.api.libs.json.Reads
 import play.api.libs.json.Writes
@@ -20,23 +21,25 @@ import play.api.libs.json.JsBoolean
 import play.api.libs.json.Format
 import play.api.libs.json.Json
 import play.api.libs.json.JsPath
-import play.api.libs.iteratee._
-//import play.api.libs.json._, Json._
-import play.api.libs.ws._
+import play.api.libs.iteratee.Enumerator
+import play.api.libs.iteratee.Iteratee
+import play.api.libs.ws.WSAuthScheme
+import play.api.libs.ws.WSClient
+import play.api.libs.ws.WSRequest
 
 
 class Neo4jREST(
     wsclient: WSClient,
-    val host: String = "localhost",
-    val port: Int = 7474,
-    val path: String = "/db/data/",
-    val username: String = "",
-    val password: String = "",
-    val cypherEndpoint: String = "cypher",
+    val host: String,
+    val port: Int,
+    val path: String,
+    val username: String,
+    val password: String,
+    val cypherEndpoint: String,
     val https: Boolean = false) {
 
   private val headers = Seq(
-    "Accept" -> "application/json",
+    "Accept" -> "application/json", // scalastyle:ignore multiple.string.literals
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
     "User-Agent" -> "AnormCypher/0.8.1"
@@ -51,7 +54,21 @@ class Neo4jREST(
   private val cypherUrl = baseURL + cypherEndpoint
 
   private def request = {
-    val req = wsclient.url(cypherUrl).withHeaders(headers:_*)
+    val req = wsclient.url(cypherUrl).withHeaders(headers: _*)
+    if (username.isEmpty) {
+      req
+    } else {
+      req.withAuth(username, password, WSAuthScheme.BASIC)
+    }
+  }
+
+  /** Creates a [[WSRequest]] with custom endpoint
+    *
+    * @param ep an endpoint
+    * @return a [[WSRequest]] with the provided endpoint
+    */
+  private def otherRequest(ep: String): WSRequest = {
+    val req = wsclient.url(baseURL + ep).withHeaders(headers: _*)
     if (username.isEmpty) {
       req
     } else {
@@ -67,7 +84,6 @@ class Neo4jREST(
   /** Asynchornous, streaming (i.e. reactive) query */
   def query(stmt: CypherStatement)
       (implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
-    import play.api.http._
 
     val req = request.withMethod(HttpVerbs.POST)
     val source = req.
@@ -76,26 +92,91 @@ class Neo4jREST(
                    stream()
 
     Enumerator.flatten(source map { case (resp, body) =>
-      if (resp.status == 400)
+      if (resp.status == 400) {
         Neo4jStream.errMsg(body)
-      else
+      } else {
         Neo4jStream.parse(body)
+      }
     })
   }
+
+  // scalastyle:off
+  /** Sends Cypher data as a transaction
+    *
+    * A [[CypherTranscation]] is sent to a provided endpoint. The response
+    * contains the commit path if the request was made against a
+    * '/transaction' endpoint. The response contains an empty String if the
+    * request was made against a '/transaction/commit' endpoint.
+    *
+    * @param cypherTransaction a [[CypherTransaction]] object
+    * @param transactionEndpoint the Neo4j transaction endpoint
+    * @return a Future containing String response
+    */
+  def sendTransaction(
+      cypTrans: CypherTransaction,
+      transactionEndpoint: String)
+    (implicit ec: ExecutionContext): Future[String] = {
+    val result = otherRequest(transactionEndpoint).post(Json.toJson(cypTrans))
+    result.map { response =>
+      val strResult = response.body
+      if (response.status != 200 && response.status !=201) {
+        throw new RuntimeException(strResult)
+      }
+      val commitPath = (Json.parse(strResult) \ "commit").toOption
+      commitPath match {
+        case Some(cp) =>
+          println(s"Transaction '${cypTrans.name}' processed at $cp")
+          cp.toString()
+        case _ => println(s"Transaction '${cypTrans.name}' completed")
+          ""
+      }
+    }
+  }
+
+  /** Commits an open transaction
+    *
+    * Closes a transaction by sending an empty body request to '/commit'
+    * endpoint.
+    *
+    * @param transId the transaction id that needs to be closed
+    * @return Boolean representing if a transaction was successfully
+    * committed (response code 200) or not.
+    */
+  def commitTransaction(transId: String)
+      (implicit ec: ExecutionContext): Boolean = {
+    val commitEndpoint = "/commit"
+    val result = otherRequest("transaction" + transId + commitEndpoint).
+                   withMethod("POST").
+                   execute()
+    val res = result.map { response =>
+        val isCommitted = (response.status == 200)
+        if (isCommitted) {
+          println(s"Transaction $transId closed.")
+        } else {
+          println(s"Failed to close transaction $transId.")
+        }
+        isCommitted
+      }
+    Await.result(res, 10.seconds)
+  }
+  // scalastyle:on
 
 }
 
 object Neo4jREST {
 
+  val SELF = "self"
+  val DATA = "data"
+
   def apply(
       host: String = "localhost",
-      port: Int = 7474,
+      port: Int = 7474, // scalastyle:ignore magic.number
       path: String = "/db/data/",
       username: String = "",
       password: String = "",
       cypherEndpoint: String = "cypher",
       https: Boolean = false)
-      (implicit wsclient: WSClient)= {
+      (implicit wsclient: WSClient): Neo4jREST = {
     new Neo4jREST(wsclient, host, port, path, username,
                   password, cypherEndpoint, https)
   }
@@ -198,14 +279,14 @@ object Neo4jREST {
   object IdURLExtractor {
 
     def unapply(s: String): Option[Long] = s.lastIndexOf('/') match {
-      case pos if pos >= 0 => Some(s.substring(pos + 1).toLong)
+      case pos: Int if pos >= 0 => Some(s.substring(pos + 1).toLong)
       case _ => None
     }
 
   }
 
   def asNode(msa: Map[String, Any]): MayErr[CypherRequestError, NeoNode] = {
-    (msa.get("self"), msa.get("data")) match {
+    (msa.get(SELF), msa.get(DATA)) match {
       case (Some(IdURLExtractor(id)), Some(props: Map[_, _])) if
           props.keys.forall(_.isInstanceOf[String]) =>
         Right(NeoNode(id, props.asInstanceOf[Map[String, Any]]))
@@ -216,7 +297,7 @@ object Neo4jREST {
 
   def asRelationship(
       m: Map[String, Any]): MayErr[CypherRequestError, NeoRelationship] = {
-    (m.get("self"), m.get("start"), m.get("end"), m.get("data")) match {
+    (m.get(SELF), m.get("start"), m.get("end"), m.get(DATA)) match {
       case (Some(IdURLExtractor(id)),
             Some(IdURLExtractor(sId)),
             Some(IdURLExtractor(eId)),

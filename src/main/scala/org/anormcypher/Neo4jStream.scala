@@ -1,12 +1,29 @@
 package org.anormcypher
 
-import play.api.libs.iteratee._
-import play.api.libs.json._
-import scala.concurrent._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+
+import play.api.libs.iteratee.Concurrent
+import play.api.libs.iteratee.Done
+import play.api.libs.iteratee.Enumeratee
+import play.api.libs.iteratee.Enumerator
+import play.api.libs.iteratee.Input
+import play.api.libs.iteratee.Iteratee
+import play.api.libs.json._ // scalastyle:ignore underscore.import
+
+import play.extras.iteratees.CharString
+import play.extras.iteratees.Encoding
+import play.extras.iteratees.JsonIteratees
+import play.extras.iteratees.Combinators.drop
+import play.extras.iteratees.Combinators.expect
+import play.extras.iteratees.Combinators.peekOne
+import play.extras.iteratees.Combinators.skipWhitespace
+import play.extras.iteratees.JsonParser.jsonString
+import play.extras.iteratees.JsonIteratees.jsSimpleArray
+
 
 /** Iteratee parsers for Neo4j json response */
 object Neo4jStream {
-  import play.extras.iteratees._, JsonParser._, JsonIteratees._, Combinators._
 
   /**
    * Parses the column name meta data.

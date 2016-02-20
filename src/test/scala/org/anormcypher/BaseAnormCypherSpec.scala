@@ -1,8 +1,16 @@
 package org.anormcypher
 
-import org.scalatest._
-import play.api.libs.ws._, ning._
-import scala.concurrent._
+import scala.concurrent.ExecutionContext
+
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.Minutes
+import org.scalatest.time.Span
+
+import play.api.libs.ws.ning.NingWSClient
 
 trait BaseAnormCypherSpec
   extends FlatSpec
@@ -12,7 +20,8 @@ trait BaseAnormCypherSpec
 
   val wsclient = NingWSClient()
 
-  implicit val neo4jrest = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))(wsclient)
+  implicit val neo4jrest =
+    Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))(wsclient)
 
   implicit val ec = ExecutionContext.global
 
@@ -20,11 +29,8 @@ trait BaseAnormCypherSpec
 }
 
 package async {
-  import org.scalatest.concurrent.ScalaFutures
 
   trait BaseAsyncSpec extends BaseAnormCypherSpec with ScalaFutures {
-
-    import org.scalatest.time._
 
     implicit override val patienceConfig =
       PatienceConfig(timeout = Span(2, Minutes))

@@ -1,7 +1,9 @@
 package org.anormcypher
 
+// scalastyle:off multiple.string.literals
 class Neo4jRESTSpec extends BaseAnormCypherSpec {
-  override def beforeEach = {
+
+  override def beforeEach: Unit = {
     Cypher("""
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
@@ -9,8 +11,8 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
       n-[:test {name:'r'}]->n2,
       n2-[:test {name:'r2'}]->n3""")()
     Cypher("""
-      CREATE (n5 {anormcyphername:'n5'}), 
-      (n6 {anormcyphername:'n6'}), 
+      CREATE (n5 {anormcyphername:'n5'}),
+      (n6 {anormcyphername:'n6'}),
       n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"],
       arrb:[false, false, true, false]}]->n6""")()
     Cypher("""
@@ -18,7 +20,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
       arrc:['a','b','c'], arrb:[false, false, true, false]});""")()
   }
 
-  override def afterEach = {
+  override def afterEach: Unit = {
     Cypher("""
       MATCH (n) WHERE HAS(n.anormcyphername)
       OPTIONAL MATCH (n)-[r]-()
@@ -52,7 +54,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
 
   it should "be able to retrieve collections of nodes" in {
     val results = Cypher("""
-      START n = node(*) 
+      START n = node(*)
       WHERE n.anormcyphername = 'n' or n.anormcyphername = 'n2'
       RETURN collect(n);
       """)()
@@ -62,8 +64,8 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
 
   it should "be able to retrieve properties of relationships" in {
     val results = Cypher("""
-      START n = node(*) 
-      MATCH n-[r]->m 
+      START n = node(*)
+      MATCH n-[r]->m
       WHERE n.anormcyphername = 'n5'
       RETURN r;
       """)()
@@ -82,17 +84,17 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
 
   it should "be able to retrieve collections of relationships" in {
     val (r,r2) = Cypher("""
-      CREATE (n {anormcyphername:'n8'}), 
-        (n2 {anormcyphername:'n9'}), 
-        (n3 {anormcyphername:'n10'}), 
-        n-[r:test {name:'r'}]->n2, 
+      CREATE (n {anormcyphername:'n8'}),
+        (n2 {anormcyphername:'n9'}),
+        (n3 {anormcyphername:'n10'}),
+        n-[r:test {name:'r'}]->n2,
         n2-[r2:test {name:'r2'}]->n3
         RETURN r, r2;
       """)().map {
       row => (row[NeoRelationship]("r"), row[NeoRelationship]("r2"))
     }.head
     val results = Cypher("""
-      START n = node(*) 
+      START n = node(*)
       MATCH p = (n)-[r*2]->(m)
       WHERE has(n.anormcyphername) AND n.anormcyphername = "n8"
       RETURN r""")()
@@ -104,6 +106,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
     rels should contain (r2)
   }
 
+  // scalastyle:off non.ascii.character.disallowed
   it should "be able to retrieve non ascii characters" in {
     val (nonAsciiCharacters, surrogatePair) = ("日本語", "\uD83D\uDE04")
     Cypher("""
@@ -118,10 +121,11 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
     node.props("name") should equal (nonAsciiCharacters)
     node.props("surrogate") should equal (surrogatePair)
   }
+  // scalastyle:on non.ascii.character.disallowed
 
   it should "be able to handle lists of maps in and out" in {
     val lm = List(
-      Map("a" -> "b", "c" -> "d"), 
+      Map("a" -> "b", "c" -> "d"),
       Map("a" -> "b", "c" -> "d"))
     val q = Cypher("RETURN {objects} as listOfMaps").on("objects" -> lm)
     val res = q().

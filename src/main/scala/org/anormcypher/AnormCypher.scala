@@ -1,8 +1,14 @@
 package org.anormcypher
 
-import MayErr._
-import scala.concurrent._, duration._
+import MayErr.eitherToError
+import MayErr.errorToEither
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
+import scala.util.control.Exception.allCatch
 
 abstract class CypherRequestError
 
@@ -13,7 +19,8 @@ case class ColumnNotFound(
 
   override def toString: String = {
     columnName + " not found, available columns : " +
-    possibilities.map { p => p.dropWhile(_ == '.') }.mkString(", ")
+    possibilities.map { p => p.dropWhile(_ == '.') }.
+      mkString(", ") // scalastyle:ignore multiple.string.literals
   }
 }
 
@@ -30,6 +37,8 @@ case class CypherMappingError(msg: String) extends CypherRequestError
 trait Column[A] extends ((Any, MetaDataItem) => MayErr[CypherRequestError, A])
 
 object Column {
+
+  val BIGINT: String = "BigInt"
 
   def apply[A](
       transformer: ((Any, MetaDataItem) => MayErr[CypherRequestError, A])
@@ -139,9 +148,9 @@ object Column {
     (value, meta) => value match {
       case bd: BigDecimal => bd.toBigIntExact() match {
         case Some(bi) => Right(bi)
-        case None => Left(typeMismatchErr(bd, meta, "BigInt"))
+        case None => Left(typeMismatchErr(bd, meta, BIGINT))
       }
-      case x: Any => Left(typeMismatchErr(x, meta, "BigInt"))
+      case x: Any => Left(typeMismatchErr(x, meta, BIGINT))
     }
   }
 
@@ -162,8 +171,6 @@ object Column {
       (Right(None): MayErr[CypherRequestError, Option[A]])
     }
   }
-
-  import scala.util.control.Exception.allCatch
 
   def checkSeq[A: ClassTag](
       seq: Seq[Any],
@@ -394,7 +401,7 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
   def execute()
       (implicit connection: Neo4jREST, ec: ExecutionContext): Boolean = {
-    var retVal = true
+    var retVal = true // scalastyle:ignore var.local
     try {
       // throws an exception on a query that doesn't succeed.
       apply()
@@ -434,7 +441,8 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
   def parse[T](
       parser: CypherResultSetParser[T])
       ()
-      (implicit connection: Neo4jREST, ec: ExecutionContext): T = Cypher.parse[T](parser, apply())
+      (implicit connection: Neo4jREST, ec: ExecutionContext): T =
+    Cypher.parse[T](parser, apply())
 
   def executeAsync()
       (implicit connection: Neo4jREST, ec: ExecutionContext):
@@ -482,11 +490,6 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 object Cypher {
 
   def apply(cypher: String): CypherStatement = CypherStatement(cypher)
-
-  def as[T](
-      parser: CypherResultSetParser[T],
-      rs: Future[Stream[CypherResultRow]])
-      (implicit ec: ExecutionContext): Future[T] = rs.map { as(parser,_) }
 
   def as[T](
       parser: CypherResultSetParser[T],

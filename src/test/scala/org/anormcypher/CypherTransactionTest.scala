@@ -9,8 +9,11 @@ class CypherTransactionSpec extends BaseAnormCypherSpec {
   val badQuery = Cypher("CREATE (n {tag:'transactiontest', name:'b1')")
   val t1 = CypherTransaction("ta", Seq(a1, a2))
   val t2 = CypherTransaction("tb", Seq(b1, b2))
-
-  override def afterEach = {
+  val nodeNamesQuery = """
+    START n = node(*) WHERE n.tag = 'transactiontest'
+    RETURN n.name AS name, n ORDER BY name
+  """
+  override def afterEach: Unit = {
     // delete the test data
     Cypher("""MATCH (n) WHERE n.tag = 'transactiontest'
       OPTIONAL MATCH (n)-[r]-() DELETE n, r""")()
@@ -18,12 +21,10 @@ class CypherTransactionSpec extends BaseAnormCypherSpec {
 
   "CypherTransaction" should "be able to create nodes" in {
     t1.commit()
-    val results = Cypher("""
-      START n = node(*) WHERE n.tag = 'transactiontest'
-      RETURN n.name AS name, n ORDER BY name""")().map { row =>
-      row[String]("name")
+    val results = Cypher(nodeNamesQuery)().map { row =>
+      row[String]("name") // scalastyle:ignore multiple.string.literals
     }.toList
-    results should be (Seq("a1", "a2"))
+    results should be (Seq("a1", "a2")) // scalastyle:ignore multiple.string.literals
   }
 
   it should "fail if any one query in the transaction is bad" in {
@@ -39,9 +40,7 @@ class CypherTransactionSpec extends BaseAnormCypherSpec {
   it should "do batch processing" in {
     val batch = CypherBatch(Seq(t1, t2))
     batch.execute()
-    val results = Cypher("""
-      START n = node(*) WHERE n.tag = 'transactiontest'
-      RETURN n.name AS name, n ORDER BY name""")().map { row =>
+    val results = Cypher(nodeNamesQuery)().map { row =>
       row[String]("name")
     }.toList
     results should be (Seq("a1", "a2", "b1", "b2"))

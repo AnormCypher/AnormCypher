@@ -1,11 +1,14 @@
 package org.anormcypher
 package async
 
-import scala.concurrent._, duration._
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 
+// scalastyle:off multiple.string.literals
 class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
-  override def beforeEach = {
+
+  override def beforeEach: Unit = {
     Cypher("""
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
@@ -14,8 +17,8 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
       n2-[:test {name:'r2'}]->n3;
       """).apply()
     Cypher("""
-      CREATE (n5 {anormcyphername:'n5'}), 
-        (n6 {anormcyphername:'n6'}), 
+      CREATE (n5 {anormcyphername:'n5'}),
+        (n6 {anormcyphername:'n6'}),
         n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"]}]->n6;
       """).apply()
     Cypher("""
@@ -24,7 +27,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
       """).apply()
   }
 
-  override def afterEach = {
+  override def afterEach: Unit = {
     Cypher("""
       MATCH (n) WHERE has(n.anormcyphername)
       OPTIONAL MATCH (n)-[r]-()
@@ -32,7 +35,10 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
-    val results = Cypher("START n=node(*) WHERE n.anormcyphername = 'nprops' RETURN n;").async().futureValue
+    val results =
+      Cypher("START n=node(*) WHERE n.anormcyphername = 'nprops' RETURN n;").
+        async().
+        futureValue
     results.size should equal(1)
     val node = results.map { row =>
       row[NeoNode]("n")
@@ -77,19 +83,19 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
 
   it should "be able to retrieve collections of relationships" in {
     val (r,r2) = Cypher("""
-      CREATE (n {anormcyphername:'n8'}), 
-        (n2 {anormcyphername:'n9'}), 
-        (n3 {anormcyphername:'n10'}), 
-        n-[r:test {name:'r'}]->n2, 
+      CREATE (n {anormcyphername:'n8'}),
+        (n2 {anormcyphername:'n9'}),
+        (n3 {anormcyphername:'n10'}),
+        n-[r:test {name:'r'}]->n2,
         n2-[r2:test {name:'r2'}]->n3
         RETURN r, r2;
       """).async().futureValue.map {
       row => (row[NeoRelationship]("r"), row[NeoRelationship]("r2"))
     }.head
     val results = Cypher("""
-      START n=node(*) 
+      START n=node(*)
       MATCH p=(n)-[r*2]->(m)
-      WHERE has(n.anormcyphername) 
+      WHERE has(n.anormcyphername)
       AND n.anormcyphername = "n8"
       RETURN r;
       """).async().futureValue
@@ -101,6 +107,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
     rels should contain (r2)
   }
 
+  // scalastyle:off non.ascii.character.disallowed
   it should "be able to retrieve non ascii characters" in {
     val (nonAsciiCharacters, surrogatePair) = ("日本語", "\uD83D\uDE04")
     Cypher("""
@@ -119,10 +126,11 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
     node.props("name") should equal (nonAsciiCharacters)
     node.props("surrogate") should equal (surrogatePair)
   }
+  // scalastyle:on non.ascii.character.disallowed
 
   it should "be able to handle lists of maps in and out" in {
     val lm = List(
-      Map("a" -> "b", "c" -> "d"), 
+      Map("a" -> "b", "c" -> "d"),
       Map("a" -> "b", "c" -> "d"))
     val q = Cypher("RETURN {objects} as listOfMaps").
               on("objects" -> lm)

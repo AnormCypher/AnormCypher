@@ -1,10 +1,15 @@
 package org.anormcypher
 package async
 
+// scalastyle:off multiple.string.literals
 class AnormCypherAsyncSpec extends BaseAsyncSpec {
+
+  val returnAllNodesQuery = "START n = node(*) RETURN n"
+
+  // scalastyle:off
   override def beforeEach() = {
     // initialize some test data
-    Cypher("""create 
+    Cypher("""create
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
@@ -21,8 +26,13 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
       germany-[:speaks {official:true}]->german,
       germany-[:speaks]->english,
       germany-[:speaks]->russian,
-      (proptest {name:"proptest", tag:"anormcyphertest", f:1.234, i:1234, l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"], arrf:[1.234,2.345,3.456]});
+      (proptest {
+        name:"proptest", tag:"anormcyphertest", f:1.234, i:1234,
+        l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"],
+        arrf:[1.234,2.345,3.456]
+      });
       """).apply()
+    // scalastyle:off
   }
 
   override def afterEach() = {
@@ -33,18 +43,18 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
   }
 
   "Cypher" should "be able to build a CypherStatement with apply" in {
-    val query = "START n = node(*) RETURN n"
+    val query = returnAllNodesQuery
     Cypher(query) should equal (CypherStatement(query))
-  } 
+  }
 
   it should "be able to make a query without parameters" in {
-    val query = "START n = node(*) RETURN n"
+    val query = returnAllNodesQuery
     CypherStatement(query)()
   }
 
   it should "be able to build a CypherStatement and send it with apply" in {
     val query = """
-      START n = node(*) 
+      START n = node(*)
       WHERE n.name = 'proptest'
       RETURN n"""
     Cypher(query).async().futureValue.size should equal (1)
@@ -52,8 +62,8 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to add parameters with .on()" in {
     val query = """
-      START n = node({id}) 
-      WHERE n.name = {test} 
+      START n = node({id})
+      WHERE n.name = {test}
       RETURN n"""
     Cypher(query).on("id"->0, "test"->"hello") should equal (
       CypherStatement(query, Map("id"->0, "test"->"hello")))
@@ -61,10 +71,10 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to send a query and map the results to a list" in {
     val allCountries = Cypher("""
-      START n = node(*) 
+      START n = node(*)
       WHERE n.type = "Country"
       and n.tag = "anormcyphertest"
-      RETURN n.code AS code, n.name AS name 
+      RETURN n.code AS code, n.name AS name
       order by name desc""")
     val countries = allCountries.
                       async().
@@ -83,7 +93,7 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to submit a few requests in a row" in {
     val query = """
-      START n = node(*) 
+      START n = node(*)
       WHERE n.tag = "anormcyphertest"
       RETURN n"""
     val test = Cypher(query).async().futureValue
@@ -95,12 +105,12 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to extract properties of different types" in {
     val allProps = Cypher("""
-      START n = node(*) 
+      START n = node(*)
       WHERE n.name = "proptest"
       RETURN n.i, n.l, n.s, n.f, n.arri, n.arrs, n.arrf""")
     val props = allProps.async().futureValue.map(row =>
       List(
-        row[Int]("n.i"), 
+        row[Int]("n.i"),
         row[Long]("n.l"),
         row[String]("n.s"),
         row[Double]("n.f"),
@@ -112,19 +122,19 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
     ).toList.head
     props should equal (
       List(
-        1234, 
-        12345678910l, 
-        "s", 
+        1234,
+        12345678910l,
+        "s",
         1.234,
-        Vector(1,2,3,4), 
-        Vector(1,2,3,4), 
-        Vector("a","b","c"), 
+        Vector(1,2,3,4),
+        Vector(1,2,3,4),
+        Vector("a","b","c"),
         Vector(1.234, 2.345, 3.456))
     )
   }
 
   it should "be able to .execute() a good query" in {
-    val query = "START n = node(*) RETURN n"
+    val query = returnAllNodesQuery
     Cypher(query).executeAsync().futureValue should equal (true)
   }
 

@@ -3,7 +3,7 @@ package org.anormcypher
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.Duration
 
 import play.api.libs.json.Writes
 import play.api.libs.json.Json
@@ -27,7 +27,7 @@ case class CypherTransaction(
    */
   def commit()
       (implicit connection: Neo4jREST, ec: ExecutionContext): Boolean = {
-    var retVal = true
+    var retVal = true // scalastyle:ignore var.local
     try {
       // throws an exception on a query that doesn't succeed.
       Await.result(connection.sendTransaction(this, "transaction/commit"),
@@ -41,7 +41,7 @@ case class CypherTransaction(
   /**
    * String representation of this transaction.
    */
-  override def toString = Json.prettyPrint(Json.toJson(this))
+  override def toString: String = Json.prettyPrint(Json.toJson(this))
 
 }
 

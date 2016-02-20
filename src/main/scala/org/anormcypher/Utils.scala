@@ -17,7 +17,7 @@ case class MayErr[+E, +A](e: Either[E, A]) {
   }
 
   def toOptionLoggingError(): Option[A] = {
-    e.left.map(m => { println(m.toString); m }).right.toOption
+    e.left.map(m => { println(m.toString); m }).right.toOption // scalastyle:ignore
   }
 
   def get: A = e.fold(e => throw new RuntimeException(e.toString), a => a)
