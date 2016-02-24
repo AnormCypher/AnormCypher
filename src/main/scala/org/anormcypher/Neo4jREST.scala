@@ -5,16 +5,15 @@ import play.api.libs.json._, Json._
 import play.api.libs.ws._
 import scala.concurrent._
 
-class Neo4jREST(wsclient: WSClient,
-  val host: String = "localhost", val port: Int = 7474, val path: String = "/db/data/",
-                val username: String = "", val password: String = "",
-                val cypherEndpoint: String = "cypher", val https: Boolean = false) {
+case class Neo4jREST(wsclient: WSClient, host: String, port: Int, path: String,
+  username: String, password: String, cypherEndpoint: String, https: Boolean,
+  override val autocommit: Boolean) extends Neo4jConnection {
 
   private val headers = Seq(
     "Accept" -> "application/json",
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.8.1"
+    "User-Agent" -> "AnormCypher/0.9.0"
   )
 
   private val baseURL = {
@@ -30,12 +29,7 @@ class Neo4jREST(wsclient: WSClient,
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  /** Asynchronous, non-streaming query */
-  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
-
-  /** Asynchornous, streaming (i.e. reactive) query */
-  def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
+  override def query(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
     import play.api.http._
 
     val req = request.withMethod(HttpVerbs.POST)
@@ -50,11 +44,10 @@ class Neo4jREST(wsclient: WSClient,
   }
 
 }
-
 object Neo4jREST {
   def apply(host: String = "localhost", port: Int = 7474, path: String = "/db/data/",
             username: String = "", password: String = "", cypherEndpoint: String = "cypher", https: Boolean = false)(implicit wsclient: WSClient) =
-    new Neo4jREST(wsclient, host, port, path, username, password, cypherEndpoint, https)
+    new Neo4jREST(wsclient, host, port, path, username, password, cypherEndpoint, https, true)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {

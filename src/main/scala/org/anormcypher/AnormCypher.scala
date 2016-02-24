@@ -351,15 +351,15 @@ case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRo
 
 case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
 
-  def apply()(implicit connection: Neo4jREST, ec: ExecutionContext): Seq[CypherResultRow] =
+  def apply()(implicit connection: Neo4jConnection, ec: ExecutionContext): Seq[CypherResultRow] =
     Await.result(async(), 30.seconds)
 
-  def async()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+  def async()(implicit connection: Neo4jConnection, ec: ExecutionContext): Future[Seq[CypherResultRow]] =
     connection.sendQuery(this)
 
   def on(args: (String, Any)*) = this.copy(params = params ++ args)
 
-  def execute()(implicit connection: Neo4jREST, ec: ExecutionContext): Boolean = {
+  def execute()(implicit connection: Neo4jConnection, ec: ExecutionContext): Boolean = {
     var retVal = true
     try {
       // throws an exception on a query that doesn't succeed.
