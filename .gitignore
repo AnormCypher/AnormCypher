@@ -2,3 +2,8 @@ target/
 bin/
 .DS_Store
 .idea
+.cache-main
+.cache-tests
+.classpath
+.project
+.settings/

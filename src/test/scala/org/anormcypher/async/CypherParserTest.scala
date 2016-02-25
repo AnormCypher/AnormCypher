@@ -1,12 +1,16 @@
 package org.anormcypher.async
 
-import org.anormcypher.CypherParser._
-import org.anormcypher._
+import org.anormcypher.CypherParser._ // scalastyle:ignore underscore.import
+import org.anormcypher.Cypher
+import org.anormcypher.CypherRow
+import org.anormcypher.NeoNode
 
 class CypherParserAsyncSpec extends BaseAsyncSpec {
-  override def beforeEach = {
+
+  // scalastyle:off line.size.limit
+  override def beforeEach: Unit = {
     // initialize some test data
-    Cypher("""create 
+    Cypher("""create
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
@@ -23,53 +27,75 @@ class CypherParserAsyncSpec extends BaseAsyncSpec {
       germany-[:speaks {official:true}]->german,
       germany-[:speaks]->english,
       germany-[:speaks]->russian,
-      (proptest {name:"proptest", tag:"anormcyphertest", f:1.234, i:1234, l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"], arrf:[1.234,2.345,3.456]});
+      (proptest {
+        name:"proptest", tag:"anormcyphertest", f:1.234, i:1234,
+        l:12345678910, s:"s", arri:[1,2,3,4], arrs:["a","b","c"],
+        arrf:[1.234,2.345,3.456]
+      });
       """).apply()
   }
+  // scalastyle:on line.size.limit
 
-  override def afterEach = {
+  override def afterEach: Unit = {
     // delete the test data
-    Cypher("""match (n)     
-      where n.tag = "anormcyphertest"
-      optional match (n)-[r]-()
-      delete n, r;
-      """).apply()
+    Cypher("""
+      MATCH (n) WHERE n.tag = "anormcyphertest"
+      OPTIONAL MATCH (n)-[r]-()
+      DELETE n, r""").apply()
   }
 
+  // scalastyle:off multiple.string.literals
   "CypherParser" should "be able to parse a node" in {
-    case class Country(name:String, node:NeoNode)
-    val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n order by name desc").async().futureValue.map {
-      row => Country(row[String]("name"), row[NeoNode]("n"))
-    }.toList
+    case class Country(name: String, node: NeoNode)
+    val results = Cypher("""
+        START n = node(*) WHERE n.type = 'Country'
+        RETURN n.name AS name, n ORDER BY name desc""").
+      async().
+      futureValue.
+      map { row => Country(row[String]("name"), row[NeoNode]("n")) }.
+      toList
     results.head.name should equal ("United States")
-    results.head.node.props should equal (Map("name" -> "United States", "type" -> "Country", "tag" -> "anormcyphertest", "code" -> "USA"))
+    results.head.node.props should equal (Map("name" -> "United States",
+                                              "type" -> "Country",
+                                              "tag" -> "anormcyphertest",
+                                              "code" -> "USA"))
   }
+  // scalastyle:on multiple.string.literals
 
   it should "be able to parse into a single Long" in {
     val count: Long = Cypher("""
-      start n=node(*) 
-      where n.tag = 'anormcyphertest' 
-      return count(n)""").asAsync(scalar[Long].single).futureValue
-    count should equal (11)
+      START n = node(*)
+      WHERE n.tag = 'anormcyphertest'
+      RETURN count(n)""").asAsync(scalar[Long].single).futureValue
+    count should equal (11) // scalastyle:ignore magic.number
   }
 
   it should "be able to parse a case class with a node" in {
-    val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n").async().futureValue.map {
-      case CypherRow(name: String, n: NeoNode) => name -> n
-      case e:Any => {//println(e);
-      }
-    }.toList
+    val results = Cypher("""
+        START n = node(*) WHERE n.type = 'Country'
+        RETURN n.name AS name, n""").
+      async().
+      futureValue.
+      map {
+        case CypherRow(name: String, n: NeoNode) => name -> n
+        case e: Any => // println(e);
+      }.
+      toList
     // TODO this isn't working!
-    //results.head("United States").props should equal (Map("name" -> "United States", "type" -> "Country", "tag" -> "anormcyphertest", "code" -> "USA"))
+    /* results.head("United States").props should equal
+      Map("name" -> "United States",
+          "type" -> "Country",
+          "tag" -> "anormcyphertest",
+          "code" -> "USA") */
   }
 
   it should "be able to parse and flatten into a tuple" in {
-    val result:List[(String,Int)] = 
+    val result: List[(String,Int)] =
       Cypher("""
-        start n=node(*) 
-        where n.type = 'Country' and has(n.name) and has(n.population) 
-        return n.name, n.population 
-        order by n.name
+        START n = node(*)
+        WHERE n.type = 'Country' AND HAS(n.name) AND HAS(n.population)
+        RETURN n.name, n.population
+        ORDER BY n.name
         """
       ).asAsync(
         (str("n.name") ~ int("n.population")).map(flatten).*
