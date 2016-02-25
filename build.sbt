@@ -1,6 +1,6 @@
 name := "RiskSense-AnormCypher"
  
-version := "0.8.1"
+version := "0.8.2"
 
 publishMavenStyle := true
 
@@ -21,10 +21,12 @@ parallelExecution in Test := false
 val playVersion = "2.4.3"
 
 libraryDependencies ++= Seq(
+  "ch.qos.logback"            % "logback-classic"  % "1.1.3",
   "com.typesafe.play"        %% "play-json"        % playVersion,
   "com.typesafe.play"        %% "play-ws"          % playVersion,
   "com.typesafe.play"        %% "play-iteratees"   % playVersion,
   "com.typesafe.play.extras" %% "iteratees-extras" % "1.5.0",
+  "com.typesafe.scala-logging" %% "scala-logging"  % "3.1.0",
   "org.scalatest"            %% "scalatest"        % "2.2.4" % "test",
   "org.scala-lang.modules"   %% "scala-async"      % "0.9.5"
 )

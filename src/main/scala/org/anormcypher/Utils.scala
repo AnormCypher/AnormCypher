@@ -2,7 +2,9 @@ package org.anormcypher
 
 import scala.language.implicitConversions
 
-case class MayErr[+E, +A](e: Either[E, A]) {
+import com.typesafe.scalalogging.StrictLogging
+
+case class MayErr[+E, +A](e: Either[E, A]) extends StrictLogging {
 
   def flatMap[B, EE >: E](f: A => MayErr[EE, B]): MayErr[EE, B] = {
     MayErr(e.right.flatMap(a => f(a).e))
@@ -17,7 +19,7 @@ case class MayErr[+E, +A](e: Either[E, A]) {
   }
 
   def toOptionLoggingError(): Option[A] = {
-    e.left.map(m => { println(m.toString); m }).right.toOption // scalastyle:ignore
+    e.left.map(m => { logger.info(m.toString); m }).right.toOption
   }
 
   def get: A = e.fold(e => throw new RuntimeException(e.toString), a => a)

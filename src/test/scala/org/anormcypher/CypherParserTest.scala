@@ -80,8 +80,7 @@ class CypherParserSpec extends BaseAnormCypherSpec {
       START n = node(*) WHERE n.type = 'Country'
       RETURN n.name AS name, n""")().map {
       case CypherRow(name: String, n: NeoNode) => name -> n
-      case e: Any => {// println(e);
-      }
+      case e: Any => logger.info(s"$e")
     }.toList
     // TODO this isn't working!
     /* results.head("United States").props should equal

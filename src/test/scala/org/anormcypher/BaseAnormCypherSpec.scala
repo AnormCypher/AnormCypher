@@ -12,11 +12,14 @@ import org.scalatest.time.Span
 
 import play.api.libs.ws.ning.NingWSClient
 
+import com.typesafe.scalalogging.StrictLogging
+
 trait BaseAnormCypherSpec
   extends FlatSpec
   with Matchers
   with BeforeAndAfterEach
-  with BeforeAndAfterAll {
+  with BeforeAndAfterAll
+  with StrictLogging {
 
   val wsclient = NingWSClient()
 

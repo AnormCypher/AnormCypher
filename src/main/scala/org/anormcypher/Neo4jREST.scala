@@ -27,6 +27,7 @@ import play.api.libs.ws.WSAuthScheme
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.WSRequest
 
+import com.typesafe.scalalogging.StrictLogging
 
 class Neo4jREST(
     wsclient: WSClient,
@@ -36,7 +37,7 @@ class Neo4jREST(
     val username: String,
     val password: String,
     val cypherEndpoint: String,
-    val https: Boolean = false) {
+    val https: Boolean = false) extends StrictLogging {
 
   private val headers = Seq(
     "Accept" -> "application/json", // scalastyle:ignore multiple.string.literals
@@ -81,7 +82,7 @@ class Neo4jREST(
       (implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
     query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
 
-  /** Asynchornous, streaming (i.e. reactive) query */
+  /** Asynchronous, streaming (i.e. reactive) query */
   def query(stmt: CypherStatement)
       (implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
 
@@ -110,25 +111,38 @@ class Neo4jREST(
     *
     * @param cypherTransaction a [[CypherTransaction]] object
     * @param transactionEndpoint the Neo4j transaction endpoint
-    * @return a Future containing String response
+    * @return a Future containing an optional String response that contains
+    * None if the transaction fails, otherwise contains the transaction
+    * commit path.
     */
   def sendTransaction(
       cypTrans: CypherTransaction,
       transactionEndpoint: String)
-    (implicit ec: ExecutionContext): Future[String] = {
+    (implicit ec: ExecutionContext): Future[Option[String]] = {
     val result = otherRequest(transactionEndpoint).post(Json.toJson(cypTrans))
     result.map { response =>
       val strResult = response.body
       if (response.status != 200 && response.status !=201) {
         throw new RuntimeException(strResult)
       }
-      val commitPath = (Json.parse(strResult) \ "commit").toOption
-      commitPath match {
-        case Some(cp) =>
-          println(s"Transaction '${cypTrans.name}' processed at $cp")
-          cp.toString()
-        case _ => println(s"Transaction '${cypTrans.name}' completed")
-          ""
+      val responseJsValue = Json.parse(strResult)
+      // Check if the response contains errors
+      val badResponse = (responseJsValue \ "errors").get.as[Array[JsValue]]
+      if (badResponse.isEmpty) { // no errors, transaction was successful
+        val commitPath = (responseJsValue \ "commit").toOption
+        commitPath match {
+          case Some(cp) =>
+            logger.info(s"Transaction '${cypTrans.name}' processed at $cp")
+            Some(cp.toString())
+          case _ => logger.info(s"Transaction '${cypTrans.name}' completed")
+            Some("")
+        }  
+      } else { // transaction failed
+        logger.info(s"Failed transaction: ${cypTrans.name}")
+        logger.debug(s"${cypTrans.statements}")
+        logger.info(s"${(badResponse.head \ "code").get}")
+        logger.info(s"${(badResponse.head \ "message").get}")
+        None
       }
     }
   }
@@ -139,8 +153,7 @@ class Neo4jREST(
     * endpoint.
     *
     * @param transId the transaction id that needs to be closed
-    * @return Boolean representing if a transaction was successfully
-    * committed (response code 200) or not.
+    * @return True if a transaction was successfully committed, false otherwise
     */
   def commitTransaction(transId: String)
       (implicit ec: ExecutionContext): Boolean = {
@@ -149,14 +162,15 @@ class Neo4jREST(
                    withMethod("POST").
                    execute()
     val res = result.map { response =>
-        val isCommitted = (response.status == 200)
-        if (isCommitted) {
-          println(s"Transaction $transId closed.")
-        } else {
-          println(s"Failed to close transaction $transId.")
-        }
-        isCommitted
+      // If response code is 200, transaction was successfully committed
+      val isCommitted = (response.status == 200)
+      if (isCommitted) {
+        logger.info(s"Transaction $transId closed.")
+      } else {
+        logger.info(s"Failed to close transaction $transId.")
       }
+      isCommitted
+    }
     Await.result(res, 10.seconds)
   }
   // scalastyle:on
@@ -165,8 +179,9 @@ class Neo4jREST(
 
 object Neo4jREST {
 
-  val SELF = "self"
-  val DATA = "data"
+  private val Self = "self"
+  private val Data = "data"
+  private val UnsupportedType = "unsupported type"
 
   def apply(
       host: String = "localhost",
@@ -195,7 +210,7 @@ object Neo4jREST {
         case (k, JsArray(ss)) if (ss.forall(_.isInstanceOf[JsString])) =>
           k -> ss.asInstanceOf[Seq[JsString]].map(_.value)
         case (k, JsObject(o)) => k -> read(o.toSeq)
-        case _ => throw new RuntimeException(s"unsupported type")
+        case _ => throw new RuntimeException(UnsupportedType)
       }).toMap
 
       def reads(json: JsValue) = json match {
@@ -265,7 +280,7 @@ object Neo4jREST {
       case JsArray(arr) => read(arr)
       case JsNull => null
       case o: JsObject => o.as[Map[String, Any]]
-      case _ => throw new RuntimeException(s"unsupported type")
+      case _ => throw new RuntimeException(UnsupportedType)
     }
 
     def reads(json: JsValue) = json match {
@@ -286,7 +301,7 @@ object Neo4jREST {
   }
 
   def asNode(msa: Map[String, Any]): MayErr[CypherRequestError, NeoNode] = {
-    (msa.get(SELF), msa.get(DATA)) match {
+    (msa.get(Self), msa.get(Data)) match {
       case (Some(IdURLExtractor(id)), Some(props: Map[_, _])) if
           props.keys.forall(_.isInstanceOf[String]) =>
         Right(NeoNode(id, props.asInstanceOf[Map[String, Any]]))
@@ -297,7 +312,7 @@ object Neo4jREST {
 
   def asRelationship(
       m: Map[String, Any]): MayErr[CypherRequestError, NeoRelationship] = {
-    (m.get(SELF), m.get("start"), m.get("end"), m.get(DATA)) match {
+    (m.get(Self), m.get("start"), m.get("end"), m.get(Data)) match {
       case (Some(IdURLExtractor(id)),
             Some(IdURLExtractor(sId)),
             Some(IdURLExtractor(eId)),

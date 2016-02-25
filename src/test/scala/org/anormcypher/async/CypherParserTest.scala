@@ -78,7 +78,7 @@ class CypherParserAsyncSpec extends BaseAsyncSpec {
       futureValue.
       map {
         case CypherRow(name: String, n: NeoNode) => name -> n
-        case e: Any => // println(e);
+        case e: Any => logger.info(s"$e");
       }.
       toList
     // TODO this isn't working!

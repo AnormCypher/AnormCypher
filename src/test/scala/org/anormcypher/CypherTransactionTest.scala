@@ -19,16 +19,17 @@ class CypherTransactionSpec extends BaseAnormCypherSpec {
       OPTIONAL MATCH (n)-[r]-() DELETE n, r""")()
   }
 
+  // scalastyle:off multiple.string.literals
   "CypherTransaction" should "be able to create nodes" in {
     t1.commit()
     val results = Cypher(nodeNamesQuery)().map { row =>
-      row[String]("name") // scalastyle:ignore multiple.string.literals
+      row[String]("name")
     }.toList
-    results should be (Seq("a1", "a2")) // scalastyle:ignore multiple.string.literals
+    results should be (Seq("a1", "a2"))
   }
 
   it should "fail if any one query in the transaction is bad" in {
-    CypherTransaction("rollback", Seq(a1, a2, badQuery)).commit()
+    CypherTransaction("rollback", Seq(a1, a2, badQuery)).commit() should be (false)
     val results = Cypher("""
       START n = node(*) WHERE n.tag = 'transactiontest'
       RETURN n.name AS name, n ORDER BY name""")().map { row =>
@@ -39,7 +40,7 @@ class CypherTransactionSpec extends BaseAnormCypherSpec {
 
   it should "do batch processing" in {
     val batch = CypherBatch(Seq(t1, t2))
-    batch.execute()
+    batch.execute() should be (true)
     val results = Cypher(nodeNamesQuery)().map { row =>
       row[String]("name")
     }.toList

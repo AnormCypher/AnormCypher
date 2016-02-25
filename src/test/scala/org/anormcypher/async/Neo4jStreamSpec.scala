@@ -2,6 +2,8 @@ package org.anormcypher.async
 
 import org.anormcypher._ // scalastyle:ignore underscore.import
 
+import scala.concurrent.Await
+
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
@@ -11,9 +13,12 @@ import org.scalatest.time.Span
 import play.api.libs.iteratee.Enumerator
 import play.api.libs.iteratee.Iteratee
 
-import scala.concurrent.Await
+import com.typesafe.scalalogging.StrictLogging
 
-class Neo4jStreamSpec extends FlatSpec with Matchers with ScalaFutures {
+class Neo4jStreamSpec extends FlatSpec
+  with Matchers
+  with ScalaFutures
+  with StrictLogging {
 
   val rand = scala.util.Random
 
