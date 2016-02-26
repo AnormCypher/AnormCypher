@@ -6,7 +6,37 @@ import scala.concurrent._
 
 /** Iteratee parsers for Neo4j json response */
 object Neo4jStream {
-  import play.extras.iteratees._, JsonParser._, JsonIteratees._, Combinators._
+  import play.extras.iteratees._, JsonParser._, JsonEnumeratees._, JsonIteratees._, Combinators._
+  // alias to shorten signatures
+  type R[T] = Iteratee[CharString, T]
+
+  def err(msg: String): R[Unit] = play.api.libs.iteratee.Error(msg, Input.EOF)
+
+  def matchString(value: String): R[Unit] = {
+    def step(matched: String, remainder: String): R[Unit] =
+      if (remainder.isEmpty()) Done(Unit, Input.Empty) else Cont {
+        case Input.EOF => err(
+          s"Premature end of input, asked to match '$value', matched '$matched', expecting '$remainder'")
+        case Input.Empty =>
+          step(matched, remainder)
+        case Input.El(data) =>
+          val in = data.mkString
+          // upstream can send "" instead of Input.Empty
+          if (in.isEmpty)
+            step(matched, remainder)
+          else if (remainder.startsWith(in)) // matched a prefix
+            if (remainder.length == in.length) // exact match
+              Done(Unit, Input.Empty)
+            else // still have some leftover to match
+              step(matched + in, remainder.substring(in.length))
+          else if (in.startsWith(remainder)) // complete match but with leftover in the input
+            Done(Unit, Input.El(CharString.fromString(in.substring(remainder.length()))))
+          else
+            err(s"Asked to match '$value', matched '$matched', expecting '$remainder', but found '$in'")
+      }
+
+    step("", value)
+  }
 
   /**
    * Parses the column name meta data.
@@ -15,7 +45,7 @@ object Neo4jStream {
    * returns the following array content as meta data.
    */
   // TODO: match string "columns"
-  def columns(implicit ec: ExecutionContext): Iteratee[CharString, MetaData] = for {
+  def columns(implicit ec: ExecutionContext): R[MetaData] = for {
     _ <- skipWhitespace
     _ <- expect('{');      _ <- skipWhitespace
     colKey <- jsonString;  _ <- skipWhitespace
@@ -26,7 +56,7 @@ object Neo4jStream {
 
   /** Consumes comma, "data", colon, bracket (data value is array of array) */
   // TODO: match string "data"
-  def openDataSeq(implicit ec: ExecutionContext): Iteratee[CharString, Unit] = for {
+  def openDataSeq(implicit ec: ExecutionContext): R[Unit] = for {
     _ <- skipWhitespace
     _ <- expect(',');      _ <- skipWhitespace
     dataKey <- jsonString; _ <- skipWhitespace
@@ -44,7 +74,7 @@ object Neo4jStream {
    * An empty list is also returned on any non-array starting char where
    * an open bracket is expected.
    */
-  def row(implicit ec: ExecutionContext): Iteratee[CharString, Seq[Any]] = for {
+  def row(implicit ec: ExecutionContext): R[Seq[Any]] = for {
     ch <- peekOne
     result <- ch match {
       case Some('[') => for {
@@ -69,6 +99,18 @@ object Neo4jStream {
     }
 
     Enumerator.flatten(futEnumer)
+  }
+
+  def parse2(source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext) = {
+    val (in, out) = Concurrent.joined[JsObject]
+    val objs: Enumeratee[CharString, JsObject] = jsArray(jsValues(jsSimpleObject))
+    val results = objs &>> in
+    val errors = objs &>> Iteratee.head.map ( _ match {
+        case None =>
+        case Some(x) => throw new RuntimeException(x.toString)
+    })
+    val parser = jsObject("errors" -> errors, "results" -> results)
+    source &> Encoding.decode() ><> parser
   }
 
   /**

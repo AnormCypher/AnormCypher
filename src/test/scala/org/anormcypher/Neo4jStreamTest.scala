@@ -1,12 +1,12 @@
-package org.anormcypher.async
+package org.anormcypher
 
-import org.anormcypher._
 import org.scalatest._, concurrent._, time._
 
 import play.api.libs.iteratee._
-import scala.concurrent.Await
+import play.extras.iteratees._
+import scala.concurrent.{Await, Future}
 
-class Neo4jStreamSpec extends FlatSpec with Matchers with ScalaFutures {
+class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
   val rand = scala.util.Random
   def nonZero(upTo: Int) = rand.nextInt(upTo) match {
     case 0 => 1
@@ -24,12 +24,53 @@ class Neo4jStreamSpec extends FlatSpec with Matchers with ScalaFutures {
   }
 
   def chunking(whole: String): Enumerator[Array[Byte]] =
-    (randomSplit(whole).map(s => Enumerator(s.getBytes)) :\ Enumerator.empty[Array[Byte]]) {
+    (randomSplit(whole).map(s => Enumerator(s.getBytes)) foldRight Enumerator.empty[Array[Byte]]) {
       (chunk, ret) => chunk andThen ret
     }
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(3, Seconds))
   implicit val ec = scala.concurrent.ExecutionContext.global
+
+  def matchStringSink(value: String): Iteratee[CharString, List[String]] =
+    for {
+      _ <- Neo4jStream.matchString(value)
+      r <- Iteratee.getChunks[CharString]
+    } yield r.map(_.mkString)
+
+  def leftover(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): String =
+    run(src, sink).futureValue.mkString
+
+  def run(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): Future[List[String]] =
+    src.map(_.getBytes) &> Encoding.decode() |>>> sink
+
+  "Neo4jStream.matchString" should "be able to accept empty string to match" in {
+    val src = Enumerator("abc", "def", "g")
+    val sink = matchStringSink("")
+    leftover(src, sink) shouldBe "abcdefg"
+  }
+
+  it should "consume matched strings" in {
+    val src = Enumerator("abc", "def", "g")
+    val sink = matchStringSink("abc")
+    leftover(src, sink) shouldBe "defg"
+  }
+
+  it should "leave the correct remaineder of the input after a successful match" in {
+    val src = Enumerator("abc", "def", "g")
+    val sink = matchStringSink("a")
+    leftover(src, sink) shouldBe "bcdefg"
+  }
+
+  it should "signal unexpected EOF when running out of input before a successful match" in {
+    val res = run(Enumerator.empty[String], matchStringSink("ab"))
+    res.failed.futureValue.getMessage shouldBe "Premature end of input, asked to match 'ab', matched '', expecting 'ab'"
+  }
+
+  it should "be able to handle empty input while matching" in {
+    val src = Enumerator((1 to 10) map (_ => "") :_*) andThen Enumerator("abcdefg")
+    val sink = matchStringSink("abc")
+    leftover(src, sink) shouldBe "defg"
+  }
 
   "Neo4jStream" should "be able to adapt byte array stream to CypherResultRow" in {
     // TODO: use scalacheck to generate different types of neo4j rest responses
