@@ -349,7 +349,7 @@ case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRo
   override def toString() = s"CypherResultRow(${metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ")})"
 }
 
-case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
+case class CypherStatement(statement: String, parameters: Map[String, Any] = Map()) {
 
   def apply()(implicit connection: Neo4jConnection, ec: ExecutionContext): Seq[CypherResultRow] =
     Await.result(async(), 30.seconds)
@@ -357,7 +357,7 @@ case class CypherStatement(query: String, params: Map[String, Any] = Map()) {
   def async()(implicit connection: Neo4jConnection, ec: ExecutionContext): Future[Seq[CypherResultRow]] =
     connection.sendQuery(this)
 
-  def on(args: (String, Any)*) = this.copy(params = params ++ args)
+  def on(args: (String, Any)*) = this.copy(parameters = parameters ++ args)
 
   def execute()(implicit connection: Neo4jConnection, ec: ExecutionContext): Boolean = {
     var retVal = true

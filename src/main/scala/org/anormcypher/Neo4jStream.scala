@@ -10,7 +10,7 @@ object Neo4jStream {
   // alias to shorten signatures
   type R[T] = Iteratee[CharString, T]
 
-  def err(msg: String): R[Unit] = play.api.libs.iteratee.Error(msg, Input.EOF)
+  def err[T](msg: String): R[T] = play.api.libs.iteratee.Error(msg, Input.EOF)
 
   def matchString(value: String): R[Unit] = {
     def step(matched: String, remainder: String): R[Unit] =
@@ -38,31 +38,68 @@ object Neo4jStream {
     step("", value)
   }
 
+  /** expect a single character, skpping following whitespaces */
+  def wsExpect(c: Char)(implicit ec: ExecutionContext): R[Unit] =
+    for (_ <- expect(c); _ <- skipWhitespace) yield ()
+
+  @inline def openBrace(implicit ec: ExecutionContext): R[Unit] = wsExpect('{')
+  @inline def openBracket(implicit ec: ExecutionContext): R[Unit] = wsExpect('[')
+
+  /** expect a string */
+  // TODO: verify that the captured string is the same as expected, raise error otherwise
+  def wsExpect(word: String)(implicit ec: ExecutionContext): R[Unit] =
+    for (_ <- jsonString; _ <- skipWhitespace) yield ()
+
+  def arrayProperty(name: String)(implicit ec: ExecutionContext): R[Unit] =
+    for (_ <- wsExpect(name); _<- wsExpect(':');  _ <- openBracket) yield ()
+
+  def results(implicit ec: ExecutionContext): R[MetaData] = for {
+    _ <- skipWhitespace
+    _ <- openBrace
+    _ <- arrayProperty("results")
+    ch <- peekOne
+    next <- ch match {
+      case Some(']') => drop(1).flatMap(_ => checkErrors)
+      case Some('{') => columns
+      case Some(x) => err(s"Unexpected character '$x'")
+      case None => err("Unexpected EOF")
+    }
+  } yield next
+
+  /** Extracts error message and raise error, if any */
+  def checkErrors(implicit ec: ExecutionContext): R[MetaData] = for {
+    _ <- skipWhitespace
+    _ <- wsExpect(',')
+    _ <- arrayProperty("errors")
+    ch <- peekOne
+    errObj <- ch match {
+      case Some(']') => drop(1).map(_ => MetaData(Nil))
+      case Some('{') => jsSimpleObject.flatMap(obj => err(
+        obj.value("message").asInstanceOf[JsString].value))
+      case Some(x) => err(s"Unexpected character '$x'")
+      case None => err("Unexpected EOF")
+    }
+  } yield errObj
+
   /**
    * Parses the column name meta data.
    *
-   * Consumes open brace, "columns", colon and
+   * Consumes <code>{"results":[{"columns":[...], "data":[</code> and
    * returns the following array content as meta data.
+   *
+   * Returns a MetaData with an empty list if the results are empty.
    */
-  // TODO: match string "columns"
   def columns(implicit ec: ExecutionContext): R[MetaData] = for {
     _ <- skipWhitespace
-    _ <- expect('{');      _ <- skipWhitespace
-    colKey <- jsonString;  _ <- skipWhitespace
-    _ <- expect(':');      _ <- skipWhitespace
+    _ <- openBrace
+    _ <- wsExpect("columns")
+    _ <- wsExpect(':')
     jsarr <- jsSimpleArray
-    jsres = Json.fromJson[Seq[String]](jsarr)
-  } yield MetaData(jsres.get.map(c => MetaDataItem(c, false, "String")).toList)
-
-  /** Consumes comma, "data", colon, bracket (data value is array of array) */
-  // TODO: match string "data"
-  def openDataSeq(implicit ec: ExecutionContext): R[Unit] = for {
+    res = Json.fromJson[Seq[String]](jsarr).get
     _ <- skipWhitespace
-    _ <- expect(',');      _ <- skipWhitespace
-    dataKey <- jsonString; _ <- skipWhitespace
-    _ <- expect(':');      _ <- skipWhitespace
-    _ <- expect('[');      _ <- skipWhitespace
-  } yield ()
+    _ <- wsExpect(',')
+    _ <- arrayProperty("data")
+  } yield MetaData(res.map(c => MetaDataItem(c, false, "String")).toList)
 
   /**
    * Parses one row of the result set, returning an empty list at the end
@@ -75,14 +112,16 @@ object Neo4jStream {
    * an open bracket is expected.
    */
   def row(implicit ec: ExecutionContext): R[Seq[Any]] = for {
+    _ <- skipWhitespace
     ch <- peekOne
     result <- ch match {
+      case None => Done[CharString, Seq[Any]](Seq.empty, Input.EOF)
       case Some('[') => for {
         jsarr <- jsSimpleArray
         jsres = Json.fromJson[Seq[Any]](jsarr)(Neo4jREST.seqReads)
       } yield jsres.get
-      case None => Done[CharString, Seq[Any]](Seq.empty, Input.EOF)
-      case in@_ => drop(1).flatMap(_ => row)
+      case Some(',') => drop(1).flatMap(_ => row)
+      case in@_ => drop(1).flatMap(_ => row)// TODO: parsing error
     }
   } yield result
 
@@ -90,9 +129,9 @@ object Neo4jStream {
   def parse(source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
     val decoded: Enumerator[CharString] = source &> Encoding.decode()
 
+    import Concurrent.runPartial
     val futEnumer: Future[Enumerator[CypherResultRow]] = for {
-      (meta, afterColumns) <- Concurrent.runPartial(decoded, columns)
-      (_, inDataSeq) <- Concurrent.runPartial(afterColumns, openDataSeq)
+      (meta, inDataSeq) <- runPartial(decoded, results)
     } yield {
       val seqAny = inDataSeq &> Enumeratee.grouped(row) ><> Enumeratee.filter(!_.isEmpty)
       seqAny.map(s => CypherResultRow(meta, s.toList))
@@ -102,32 +141,12 @@ object Neo4jStream {
   }
 
   def parse2(source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext) = {
-    val (in, out) = Concurrent.joined[JsObject]
-    val objs: Enumeratee[CharString, JsObject] = jsArray(jsValues(jsSimpleObject))
-    val results = objs &>> in
-    val errors = objs &>> Iteratee.head.map ( _ match {
-        case None =>
-        case Some(x) => throw new RuntimeException(x.toString)
-    })
-    val parser = jsObject("errors" -> errors, "results" -> results)
-    source &> Encoding.decode() ><> parser
+    val decoded: Enumerator[CharString] = source &> Encoding.decode()
+
+    import Concurrent.runPartial
+    import scala.concurrent.duration._
+    val (meta, afterColumns) = Await.result(runPartial(decoded, results), 3.seconds)
+    println(meta)
   }
 
-  /**
-   * Turns a neo4j error response into an Error iteratee, containing
-   * the 'message' portion of the original neo4j error response
-   */
-  def errMsg[A](source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext):
-      Enumerator[A] = new Enumerator[A] {
-    override def apply[B](i: Iteratee[A, B]): Future[Iteratee[A, B]] = {
-      (source &> Encoding.decode() |>>> JsonIteratees.jsSimpleObject) map { obj =>
-        val msg = obj.value.get("message") match {
-          case None => ""
-          case Some(JsString(v)) => v
-          case Some(jsv) => jsv.toString
-        }
-        play.api.libs.iteratee.Error(msg, Input.EOF)
-      }
-    }
-  }
 }
