@@ -1,6 +1,7 @@
 package org.anormcypher
 
 class Neo4jRESTSpec extends BaseAnormCypherSpec {
+
   override def beforeEach = {
     Cypher("""
       CREATE (n {anormcyphername:'n'}),
@@ -20,7 +21,10 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
   }
 
   override def afterEach = {
-    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;")()
+    Cypher("""
+      MATCH (n) WHERE HAS(n.anormcyphername)
+      OPTIONAL MATCH (n)-[r]-()
+      DELETE n,r;""")()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
@@ -90,9 +94,8 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
     }.head
     val results = Cypher("""
       START n=node(*) 
-      match p=(n)-[r*2]->(m)
-      where has(n.anormcyphername) 
-      and n.anormcyphername = "n8"
+      MATCH p=(n)-[r*2]->(m)
+      WHERE has(n.anormcyphername) AND n.anormcyphername = "n8"
       RETURN r;
       """)()
     val rels = results.map { row =>

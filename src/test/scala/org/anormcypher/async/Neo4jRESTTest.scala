@@ -1,7 +1,8 @@
 package org.anormcypher
 package async
 
-import scala.concurrent._, duration._
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 
 class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
@@ -24,11 +25,11 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   }
 
   override def afterEach = {
-    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;").apply()
+    Cypher("MATCH (n) WHERE HAS(n.anormcyphername) OPTIONAL MATCH (n)-[r]-() DELETE n,r;").apply()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
-    val results = Cypher("START n=node(*) where n.anormcyphername = 'nprops' RETURN n;").async().futureValue
+    val results = Cypher("START n=node(*) WHERE n.anormcyphername = 'nprops' RETURN n;").async().futureValue
     results.size should equal(1)
     val node = results.map { row =>
       row[NeoNode]("n")
@@ -42,7 +43,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   it should "be able to retrieve collections of nodes" in {
     val results = Cypher("""
       START n=node(*)
-      where n.anormcyphername = 'n' or n.anormcyphername = 'n2'
+      WHERE n.anormcyphername = 'n' OR n.anormcyphername = 'n2'
       RETURN collect(n);
       """).async().futureValue
     val nodes = results.map { row =>
@@ -54,8 +55,8 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   it should "be able to retrieve properties of relationships" in {
     val results = Cypher("""
       START n=node(*)
-      match n-[r]->m
-      where n.anormcyphername = 'n5'
+      MATCH n-[r]->m
+      WHERE n.anormcyphername = 'n5'
       RETURN r;
       """).async().futureValue
     results.size should equal (1)
@@ -81,9 +82,8 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
     }.head
     val results = Cypher("""
       START n=node(*) 
-      match p=(n)-[r*2]->(m)
-      where has(n.anormcyphername) 
-      and n.anormcyphername = "n8"
+      MATCH p=(n)-[r*2]->(m)
+      WHERE HAS(n.anormcyphername) AND n.anormcyphername = "n8"
       RETURN r;
       """).async().futureValue
     val rels = results.map { row =>
@@ -129,9 +129,9 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
 
   it should "return the original neo4j error message" in {
     val resp = CypherStatement("""
-    |match (m:Monkey)-[t:typewriter*]->(x)
-    | where x = contentsOf("Hamlet")
-    | return sum(t.years) / 100 as totalCenturiesTaken
+    |MATCH (m:Monkey)-[t:typewriter*]->(x)
+    | WHERE x = contentsOf("Hamlet")
+    | RETURN sum(t.years) / 100 AS totalCenturiesTaken
     |""".stripMargin).async
 
     val res = Await.ready(resp, 3.seconds).value

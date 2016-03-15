@@ -5,9 +5,15 @@ import play.api.libs.json._, Json._
 import play.api.libs.ws._
 import scala.concurrent._
 
-case class Neo4jREST(wsclient: WSClient, host: String, port: Int, path: String,
-  username: String, password: String, https: Boolean,
-  override val autocommit: Boolean) extends Neo4jConnection {
+case class Neo4jREST(
+    wsclient: WSClient,
+    host: String,
+    port: Int,
+    path: String,
+    username: String,
+    password: String,
+    https: Boolean,
+    override val autocommit: Boolean) extends Neo4jConnection {
 
   private val headers = Seq(
     "Accept" -> "application/json",

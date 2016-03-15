@@ -2,6 +2,9 @@ package org.anormcypher
 package async
 
 class AnormCypherAsyncSpec extends BaseAsyncSpec {
+
+  val returnAllNodesQuery = "START n = node(*) RETURN n"
+
   override def beforeEach() = {
     // initialize some test data
     Cypher("""create 
@@ -35,19 +38,11 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
   }
 
   "Cypher" should "be able to build a CypherStatement with apply" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    Cypher(query) should equal (CypherStatement(query))
+    Cypher(returnAllNodesQuery) should equal (CypherStatement(returnAllNodesQuery))
   } 
 
   it should "be able to make a query without parameters" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    CypherStatement(query)()
+    CypherStatement(returnAllNodesQuery)()
   }
 
   it should "be able to build a CypherStatement and send it with apply" in {
@@ -133,11 +128,7 @@ class AnormCypherAsyncSpec extends BaseAsyncSpec {
   }
 
   it should "be able to .execute() a good query" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    Cypher(query).executeAsync().futureValue should equal (true)
+    Cypher(returnAllNodesQuery).executeAsync().futureValue should equal (true)
   }
 
   it should "be able to .execute() a bad query" in {

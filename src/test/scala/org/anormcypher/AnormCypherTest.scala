@@ -1,6 +1,12 @@
 package org.anormcypher
 
 class AnormCypherSpec extends BaseAnormCypherSpec {
+
+  val returnAllNodesQuery = """
+    START n = node(*)
+    RETURN n;
+    """
+
   override def beforeEach() = {
     // initialize some test data
     Cypher("""create 
@@ -34,19 +40,11 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
   }
 
   "Cypher" should "be able to build a CypherStatement with apply" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    Cypher(query) should equal (CypherStatement(query))
+    Cypher(returnAllNodesQuery) should equal (CypherStatement(returnAllNodesQuery))
   } 
 
   it should "be able to make a query without parameters" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    CypherStatement(query)()
+    CypherStatement(returnAllNodesQuery)()
   }
 
   it should "be able to build a CypherStatement and send it with apply" in {
@@ -132,11 +130,7 @@ class AnormCypherSpec extends BaseAnormCypherSpec {
   }
 
   it should "be able to .execute() a good query" in {
-    val query = """
-      START n=node(*) 
-      RETURN n;
-      """
-    Cypher(query).execute() should equal (true)
+    Cypher(returnAllNodesQuery).execute() should equal (true)
   }
 
   it should "be able to .execute() a bad query" in {

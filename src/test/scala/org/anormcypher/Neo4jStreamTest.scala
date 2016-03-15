@@ -7,7 +7,9 @@ import play.extras.iteratees._
 import scala.concurrent.{Await, Future}
 
 class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
+
   val rand = scala.util.Random
+
   def nonZero(upTo: Int) = rand.nextInt(upTo) match {
     case 0 => 1
     case n => n

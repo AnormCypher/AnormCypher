@@ -6,7 +6,7 @@ import org.anormcypher._
 class CypherParserAsyncSpec extends BaseAsyncSpec {
   override def beforeEach = {
     // initialize some test data
-    Cypher("""create 
+    Cypher("""CREATE 
       (us {type:"Country", name:"United States", code:"USA", tag:"anormcyphertest"}),
       (germany {type:"Country", name:"Germany", code:"DEU", population:81726000, tag:"anormcyphertest"}),
       (france {type:"Country", name:"France", code:"FRA", tag:"anormcyphertest", indepYear:1789}),
@@ -29,10 +29,10 @@ class CypherParserAsyncSpec extends BaseAsyncSpec {
 
   override def afterEach = {
     // delete the test data
-    Cypher("""match (n)     
-      where n.tag = "anormcyphertest"
-      optional match (n)-[r]-()
-      delete n, r;
+    Cypher("""MATCH (n)     
+      WHERE n.tag = "anormcyphertest"
+      OPTIONAL MATCH (n)-[r]-()
+      DELETE n, r;
       """).apply()
   }
 
@@ -47,17 +47,16 @@ class CypherParserAsyncSpec extends BaseAsyncSpec {
 
   it should "be able to parse into a single Long" in {
     val count: Long = Cypher("""
-      start n=node(*) 
-      where n.tag = 'anormcyphertest' 
-      return count(n)""").asAsync(scalar[Long].single).futureValue
+      START n=node(*) 
+      WHERE n.tag = 'anormcyphertest' 
+      RETURN count(n)""").asAsync(scalar[Long].single).futureValue
     count should equal (11)
   }
 
   it should "be able to parse a case class with a node" in {
     val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n").async().futureValue.map {
       case CypherRow(name: String, n: NeoNode) => name -> n
-      case e:Any => {//println(e);
-      }
+      case e:Any => logger.info(s"$e")
     }.toList
     // TODO this isn't working!
     //results.head("United States").props should equal (Map("name" -> "United States", "type" -> "Country", "tag" -> "anormcyphertest", "code" -> "USA"))
@@ -66,10 +65,10 @@ class CypherParserAsyncSpec extends BaseAsyncSpec {
   it should "be able to parse and flatten into a tuple" in {
     val result:List[(String,Int)] = 
       Cypher("""
-        start n=node(*) 
-        where n.type = 'Country' and has(n.name) and has(n.population) 
-        return n.name, n.population 
-        order by n.name
+        START n=node(*) 
+        WHERE n.type = 'Country' and has(n.name) and has(n.population) 
+        RETURN n.name, n.population 
+        ORDER BY n.name
         """
       ).asAsync(
         (str("n.name") ~ int("n.population")).map(flatten).*

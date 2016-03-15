@@ -1,44 +1,75 @@
 package org.anormcypher
 
-import play.api.libs.iteratee._
-import play.api.libs.json._
-import scala.concurrent._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
-/** Iteratee parsers for Neo4j json response */
-object Neo4jStream {
-  import play.extras.iteratees._, JsonParser._, JsonEnumeratees._, JsonIteratees._, Combinators._
+import play.api.libs.iteratee.Concurrent
+import play.api.libs.iteratee.Cont
+import play.api.libs.iteratee.Done
+import play.api.libs.iteratee.Enumeratee
+import play.api.libs.iteratee.Enumerator
+import play.api.libs.iteratee.Input
+import play.api.libs.iteratee.Iteratee
+import play.api.libs.json._
+
+import play.extras.iteratees.CharString
+import play.extras.iteratees.Encoding
+import play.extras.iteratees.JsonIteratees
+import play.extras.iteratees.Combinators.drop
+import play.extras.iteratees.Combinators.expect
+import play.extras.iteratees.Combinators.peekOne
+import play.extras.iteratees.Combinators.skipWhitespace
+import play.extras.iteratees.JsonParser.jsonString
+import play.extras.iteratees.JsonIteratees.jsSimpleArray
+import play.extras.iteratees.JsonIteratees.jsSimpleObject
+
+import com.typesafe.scalalogging.StrictLogging
+
+/** Iteratee parsers for Neo4j JSON response */
+object Neo4jStream extends StrictLogging {
+
   // alias to shorten signatures
   type R[T] = Iteratee[CharString, T]
 
   def err[T](msg: String): R[T] = play.api.libs.iteratee.Error(msg, Input.EOF)
 
   def matchString(value: String): R[Unit] = {
-    def step(matched: String, remainder: String): R[Unit] =
-      if (remainder.isEmpty()) Done(Unit, Input.Empty) else Cont {
-        case Input.EOF => err(
-          s"Premature end of input, asked to match '$value', matched '$matched', expecting '$remainder'")
+
+    def step(matched: String, remainder: String): R[Unit] = {
+      if (remainder.isEmpty()) {
+        Done(Unit, Input.Empty)
+      } else Cont {
+        case Input.EOF =>
+          err(s"""Premature end of input, asked to match '$value', matched '$matched', expecting '$remainder'""")
         case Input.Empty =>
           step(matched, remainder)
         case Input.El(data) =>
           val in = data.mkString
           // upstream can send "" instead of Input.Empty
-          if (in.isEmpty)
+          if (in.isEmpty) {
             step(matched, remainder)
-          else if (remainder.startsWith(in)) // matched a prefix
-            if (remainder.length == in.length) // exact match
+          } else if (remainder.startsWith(in)) { // matched a prefix
+            if (remainder.length == in.length) { // exact match
               Done(Unit, Input.Empty)
-            else // still have some leftover to match
+            } else { // still have some leftover to match
               step(matched + in, remainder.substring(in.length))
-          else if (in.startsWith(remainder)) // complete match but with leftover in the input
-            Done(Unit, Input.El(CharString.fromString(in.substring(remainder.length()))))
-          else
-            err(s"Asked to match '$value', matched '$matched', expecting '$remainder', but found '$in'")
+            }
+          } else if (in.startsWith(remainder)) { // complete match but with leftover in the input
+            Done(
+              Unit,
+              Input.El(CharString.fromString(in.substring(remainder.length)))
+            )
+          } else {
+            err(s"""Asked to match '$value', matched '$matched', expecting '$remainder', but found '$in'""")
+          }
       }
+    }
 
     step("", value)
   }
 
-  /** expect a single character, skpping following whitespaces */
+  /** expect a single character, skipping following whitespaces */
   def wsExpect(c: Char)(implicit ec: ExecutionContext): R[Unit] =
     for (_ <- expect(c); _ <- skipWhitespace) yield ()
 
@@ -126,7 +157,9 @@ object Neo4jStream {
   } yield result
 
   /** Adapts a stream of byte array to a stream of CypherResultRow */
-  def parse(source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
+  def parse(
+      source: Enumerator[Array[Byte]])
+      (implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
     val decoded: Enumerator[CharString] = source &> Encoding.decode()
 
     import Concurrent.runPartial
@@ -146,7 +179,7 @@ object Neo4jStream {
     import Concurrent.runPartial
     import scala.concurrent.duration._
     val (meta, afterColumns) = Await.result(runPartial(decoded, results), 3.seconds)
-    println(meta)
+    logger.info(s"$meta")
   }
 
 }
