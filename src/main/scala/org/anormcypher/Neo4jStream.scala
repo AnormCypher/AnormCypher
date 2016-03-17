@@ -139,14 +139,4 @@ object Neo4jStream {
 
     Enumerator.flatten(futEnumer)
   }
-
-  def parse2(source: Enumerator[Array[Byte]])(implicit ec: ExecutionContext) = {
-    val decoded: Enumerator[CharString] = source &> Encoding.decode()
-
-    import Concurrent.runPartial
-    import scala.concurrent.duration._
-    val (meta, afterColumns) = Await.result(runPartial(decoded, results), 3.seconds)
-    println(meta)
-  }
-
 }

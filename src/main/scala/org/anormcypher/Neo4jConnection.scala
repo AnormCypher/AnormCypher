@@ -25,20 +25,23 @@ trait Neo4jConnection {
 
   /** Transaction API */
   def autocommit: Boolean
-  // TODO: implement
+
   trait Neo4jTransaction {
+    def txId: String
     def connection: Neo4jConnection
+    // Both commit and rollback are blocking operations because a callback api is not as clear
     def commit(implicit ec: ExecutionContext): Unit
     def rollback(implicit ec: ExecutionContext): Unit
   }
 
-  // TODO: implement
-  private[anormcypher] def beginTx(implicit ec: ExecutionContext): Neo4jTransaction
+  private[anormcypher] def beginTx(implicit ec: ExecutionContext): Future[Neo4jTransaction]
 
   /** Loan Pattern encapsulates transaction lifecycle */
-  def withTx[A](code: (Neo4jConnection, ExecutionContext) => A)(implicit ec: ExecutionContext): A = {
-    val tx = beginTx(ec)
-    try {
+  def withTx[A](code: (Neo4jConnection, ExecutionContext) => A)(implicit ec: ExecutionContext): Future[A] =
+    for {
+      tx <- beginTx(ec)
+    } yield try {
+      // TODO: deal with code that returns Future
       val r = code(tx.connection, ec)
       tx.commit(ec)
       r
@@ -46,5 +49,4 @@ trait Neo4jConnection {
       case e: ControlThrowable => tx.commit(ec); throw e
       case e: Throwable =>      tx.rollback(ec); throw e
     }
-  }
 }

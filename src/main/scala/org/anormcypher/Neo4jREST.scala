@@ -1,11 +1,12 @@
 package org.anormcypher
 
+import play.api.http.HttpVerbs.{DELETE, POST}
 import play.api.libs.iteratee._
 import play.api.libs.json._, Json._
 import play.api.libs.ws._
-import scala.concurrent._
+import scala.concurrent._, duration._
 
-case class Neo4jREST(wsclient: WSClient, host: String, port: Int, path: String,
+case class Neo4jREST(wsclient: WSClient, host: String, port: Int,
   username: String, password: String, https: Boolean,
   override val autocommit: Boolean) extends Neo4jConnection {
 
@@ -18,22 +19,25 @@ case class Neo4jREST(wsclient: WSClient, host: String, port: Int, path: String,
 
   private val baseUrl = {
     val protocol = if (https) "https" else "http"
-    val pth = path.stripPrefix("/")
-    s"$protocol://$host:$port/$pth"
+    s"$protocol://$host:$port/db/data/transaction"
   }
 
-  private def request(txid:Option[ String] = None): WSRequest = {
-    val endpoint = txid map (baseUrl + "/" + _) getOrElse baseUrl + "/commit"
+  // request body to begin a transaction
+  val EmptyStatements = "{\"statements\":[]}"
+  @inline private def txEndpoint(txid: String) = baseUrl + "/" + txid
+
+  val AutocommitEndpoint = baseUrl + "/commit"
+
+  private def request(endpoint: String): WSRequest = {
     val req = wsclient.url(endpoint).withHeaders(headers:_*)
     // TODO: allow different authentication schemes
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
   override def streamAutoCommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
-    import play.api.http._
     import Neo4jREST._
 
-    val req = request(None).withMethod(HttpVerbs.POST)
+    val req = request(AutocommitEndpoint).withMethod(POST)
     val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
     Enumerator.flatten(source map { case (resp, body) =>
@@ -41,19 +45,39 @@ case class Neo4jREST(wsclient: WSClient, host: String, port: Int, path: String,
     })
   }
 
-  // TODO: implement
-  private[anormcypher] override def beginTx(implicit ec: ExecutionContext) = ???
-    // new Neo4jRestTransaction(this.copy(autocommit = false), 1)
+  private[anormcypher] override def beginTx(implicit ec: ExecutionContext) =
+    for {
+      resp <- request(baseUrl).post(EmptyStatements)
+      endpoint = (resp.json \ "commit").get.as[String]
+      part = endpoint.substring(baseUrl.length + 1)
+      txid = part.substring(0, part.lastIndexOf('/'))
+    } yield new Neo4jRestTransaction(this.copy(autocommit = false), txid)
 
-  case class Neo4jRestTransaction(override val connection: Neo4jREST, txid: String) extends Neo4jTransaction {
-    override def commit(implicit ec: ExecutionContext) = ???
-    override def rollback(implicit ec: ExecutionContext) = ???
+  // TODO: configure timeout when waiting for server response
+  case class Neo4jRestTransaction(override val connection: Neo4jREST, txId: String) extends Neo4jTransaction {
+    def raiseErrIfAny(act: String, resp: WSResponse) = {
+      def raiseErr = throw new RuntimeException(
+        s"Unable to ${act} transaction [${txId}], server responded with code [${resp.status}] and body: ${resp.body}")
+
+      if (resp.status != 200) raiseErr
+      (resp.json \ "errors").get.asOpt[Array[JsValue]] match {
+        case Some(arr) if !arr.isEmpty => raiseErr
+        case _ =>
+      }
+    }
+
+    override def commit(implicit ec: ExecutionContext) =
+      raiseErrIfAny("commit", Await.result(
+        connection.request(s"${connection.baseUrl}/${txId}/commit").post(EmptyStatements), 10.seconds))
+
+    override def rollback(implicit ec: ExecutionContext) =
+      raiseErrIfAny("rollback", Await.result(
+        connection.request(connection.baseUrl + "/" + txId).delete(), 10.seconds))
   }
 }
 object Neo4jREST {
-  def apply(host: String = "localhost", port: Int = 7474, path: String = "/db/data/transaction",
-            username: String = "", password: String = "", https: Boolean = false)(implicit wsclient: WSClient) =
-    new Neo4jREST(wsclient, host, port, path, username, password, https, true)
+  def apply(host: String = "localhost", port: Int = 7474, username: String = "", password: String = "", https: Boolean = false)(implicit wsclient: WSClient) =
+    new Neo4jREST(wsclient, host, port, username, password, https, true)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {
