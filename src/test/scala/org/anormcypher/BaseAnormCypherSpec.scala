@@ -9,6 +9,10 @@ trait BaseAnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach
   implicit val neo4jrest = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))(wsclient)
   implicit val ec = ExecutionContext.global
 
+  override def afterEach = {
+    Cypher("match (n:anormcyphertest) optional match n-[r]-() delete n,r;")()
+  }
+
   override def afterAll = {
     wsclient.close()
   }

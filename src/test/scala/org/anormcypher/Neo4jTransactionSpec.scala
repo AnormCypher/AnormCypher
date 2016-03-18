@@ -2,10 +2,21 @@ package org.anormcypher
 
 import scala.concurrent._, duration._
 
-class Neo4jTransactionTest extends BaseAnormCypherSpec {
+class Neo4jTransactionSpec extends async.BaseAsyncSpec {
   def beginTx = Await.result(neo4jrest.beginTx, 3.seconds)
 
-  "Neo4jConnection.beginTx" should "be able to return a transaction id" in {
+  "Neo4jTransaction" should "provide an autocommit Neo4jTransaction in the implicit scope" in {
+    // normal implicit scope contains an autocommit
+    intercept[UnsupportedOperationException] { implicitly[Neo4jTransaction].txId }
+  }
+
+  it should "provide an open transaction through withTx" in {
+    Neo4jTransaction.withTx { implicit tx =>
+      tx.txId.matches("\\d+") shouldBe true
+    }.futureValue
+  }
+
+  "Neo4jConnection.beginTx" should "return a transaction id" in {
     beginTx.txId.matches("\\d+") shouldBe true
   }
 
