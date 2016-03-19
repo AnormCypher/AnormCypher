@@ -38,7 +38,7 @@ object Neo4jStream {
     step("", value)
   }
 
-  /** expect a single character, skpping following whitespaces */
+  /** expect a single character and skip succeeding whitespace chars */
   def wsExpect(c: Char)(implicit ec: ExecutionContext): R[Unit] =
     for (_ <- expect(c); _ <- skipWhitespace) yield ()
 

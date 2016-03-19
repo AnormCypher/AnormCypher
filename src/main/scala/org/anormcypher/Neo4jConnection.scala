@@ -6,9 +6,13 @@ import scala.util.control.ControlThrowable
 
 /** Neo4j Connection API */
 trait Neo4jConnection {
-  /** Asynchronous, non-streaming query */
+  @deprecated("0.9", "use execute instead")
   def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      streamAutoCommit(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
+    execute(cypherStatement)
+
+  /** Asynchronous, non-streaming query */
+  def execute(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+      streamAutoCommit(stmt) |>>> Iteratee.getChunks[CypherResultRow]
 
   /**
    * Asynchronous, streaming (i.e. reactive) query.
@@ -29,18 +33,21 @@ trait Neo4jConnection {
    * execute in a transaction usually do not return large result sets
    * as it is impractical to hold open the transaction for too long.
    */
-  private[anormcypher] def useOpenTransaction(stmt: CypherStatement)(
-    implicit ec: ExecutionContext): Future[Seq[CypherResultRow]]
+  private[anormcypher] def executeInTx(stmt: CypherStatement)(
+    implicit tx: Neo4jTransaction, ec: ExecutionContext): Future[Seq[CypherResultRow]]
 }
 
 trait Neo4jTransaction {
   def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]]
+
   def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
 
   def txId: String
   // Both commit and rollback are blocking operations because a callback api is not as clear
   def commit(implicit ec: ExecutionContext): Unit
   def rollback(implicit ec: ExecutionContext): Unit
+
+  @inline protected def nosup(msg: String) = throw new UnsupportedOperationException(msg)
 }
 
 /** Provides a default single-request, autocommit Transaction  */
@@ -54,14 +61,13 @@ object Neo4jTransaction {
   implicit def autocommitNeo4jTransaction(implicit conn: Neo4jConnection): Neo4jTransaction =
     new Neo4jTransaction {
       override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) =
-        conn.sendQuery(stmt)
+        conn.execute(stmt)
       override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
         conn.streamAutoCommit(stmt)
 
-      @inline private def nonsense(msg: String) = throw new UnsupportedOperationException(msg)
-      override def txId = nonsense("No transaction id available in autocommit transaction")
-      override def commit(implicit ec: ExecutionContext) = nonsense("Cannot commit an autocommit transaction")
-      override def rollback(implicit ec: ExecutionContext) = nonsense("Cannot rollback an autocommit transaction")
+      override def txId = nosup("No transaction id available in autocommit transaction")
+      override def commit(implicit ec: ExecutionContext) = nosup("Cannot commit an autocommit transaction")
+      override def rollback(implicit ec: ExecutionContext) = nosup("Cannot rollback an autocommit transaction")
     }
 
   /** Loan Pattern encapsulates transaction lifecycle */
@@ -74,7 +80,7 @@ object Neo4jTransaction {
       tx.commit
       r
     } catch {
-      case e: ControlThrowable => tx.commit(ec); throw e
-      case e: Throwable =>      tx.rollback(ec); throw e
+      case e: ControlThrowable => tx.commit; throw e
+      case e: Throwable =>      tx.rollback; throw e
     }
 }

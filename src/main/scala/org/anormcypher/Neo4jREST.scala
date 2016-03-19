@@ -8,6 +8,7 @@ import scala.concurrent._, duration._
 
 class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
   val username: String, val password: String, val https: Boolean) extends Neo4jConnection {
+  import Neo4jREST._
 
   private val headers = Seq(
     "Accept" -> "application/json",
@@ -24,6 +25,7 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
   // request body to begin a transaction
   val EmptyStatements = "{\"statements\":[]}"
   @inline private def txEndpoint(txid: String) = baseUrl + "/" + txid
+  @inline private def txCommitUrl(txid: String) = txEndpoint(txid) + "/commit"
 
   val AutocommitEndpoint = baseUrl + "/commit"
 
@@ -34,8 +36,6 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
   }
 
   override def streamAutoCommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
-    import Neo4jREST._
-
     val req = request(AutocommitEndpoint).withMethod(POST)
     val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
@@ -44,8 +44,33 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     })
   }
 
-  private[anormcypher] override def useOpenTransaction(stmt: CypherStatement)(
-    implicit ec: ExecutionContext) = ???
+  private[anormcypher] override def executeInTx(stmt: CypherStatement)(
+    implicit tx: Neo4jTransaction, ec: ExecutionContext) =
+    for {
+      resp <- request(txEndpoint(tx.txId)).post(Json.toJson(wrapCypher(stmt)))
+    } yield {
+      raiseErrIfAny("execute", resp)
+      val res = (resp.json \ "results").get.as[Array[JsObject]]
+      val cypherRESTResult = Json.fromJson[CypherRESTResult](res(0))(cypherRESTResultReads).get
+      val metaDataItems = cypherRESTResult.columns.map {
+        c => MetaDataItem(c, false, "String")
+      }.toList
+      val metaData = MetaData(metaDataItems)
+      cypherRESTResult.data.map {
+        d => CypherResultRow(metaData, d.row.toList)
+      }
+    }
+
+  private[anormcypher] def raiseErrIfAny(msg: String, resp: WSResponse) = {
+    def raiseErr = throw new RuntimeException(
+      s"${msg}: Server responded with code [${resp.status}] and body: ${resp.body}")
+
+    if (resp.status != 200) raiseErr
+      (resp.json \ "errors").get.asOpt[Array[JsValue]] match {
+        case Some(arr) if !arr.isEmpty => raiseErr
+        case _ =>
+      }
+  }
 
   private[anormcypher] override def beginTx(implicit ec: ExecutionContext) =
     for {
@@ -57,29 +82,18 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
 
   // TODO: configure timeout when waiting for server response
   case class Neo4jRestTransaction(override val txId: String) extends Neo4jTransaction {
-    override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) = useOpenTransaction(stmt)
+    override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) = executeInTx(stmt)(this, ec)
 
     override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
-      throw new UnsupportedOperationException("Streaming is not supported in open transactions")
-
-    private def raiseErrIfAny(act: String, resp: WSResponse) = {
-      def raiseErr = throw new RuntimeException(
-        s"Unable to ${act} transaction [${txId}], server responded with code [${resp.status}] and body: ${resp.body}")
-
-      if (resp.status != 200) raiseErr
-      (resp.json \ "errors").get.asOpt[Array[JsValue]] match {
-        case Some(arr) if !arr.isEmpty => raiseErr
-        case _ =>
-      }
-    }
+      nosup("Streaming is not supported in open transactions")
 
     override def commit(implicit ec: ExecutionContext) =
-      raiseErrIfAny("commit", Await.result(
-        request(s"${baseUrl}/${txId}/commit").post(EmptyStatements), 10.seconds))
+      raiseErrIfAny(s"Unable to commit transaction [$txId]", Await.result(
+        request(txCommitUrl(txId)).post(EmptyStatements), 10.seconds))
 
     override def rollback(implicit ec: ExecutionContext) =
-      raiseErrIfAny("rollback", Await.result(
-        request(baseUrl + "/" + txId).delete(), 10.seconds))
+      raiseErrIfAny(s"Unable to rollback transaction [$txId]", Await.result(
+        request(txEndpoint(txId)).delete(), 10.seconds))
   }
 
 }
@@ -174,6 +188,9 @@ object Neo4jREST {
     }
   }
 
+  implicit val Neo4jResultSetReads = Json.reads[Neo4jResultSet]
+  implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
+
   object IdURLExtractor {
     def unapply(s: String) = s.lastIndexOf('/') match {
       case pos if pos >= 0 => Some(s.substring(pos + 1).toLong)
@@ -187,6 +204,10 @@ object Neo4jREST {
   def asRelationship(msa: Map[String, Any]): MayErr[CypherRequestError, NeoRelationship] =
     Right(NeoRelationship(msa))
 }
+
+// TODO: map neo4j transaction result
+case class CypherRESTResult(columns: Vector[String], data: Seq[Neo4jResultSet])
+case class Neo4jResultSet(row: Seq[Any])
 
 case class NeoNode(props: Map[String, Any])
 
