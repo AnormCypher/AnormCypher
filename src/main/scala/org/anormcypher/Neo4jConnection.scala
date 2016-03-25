@@ -12,7 +12,7 @@ trait Neo4jConnection {
 
   /** Asynchronous, non-streaming query */
   def execute(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      streamAutoCommit(stmt) |>>> Iteratee.getChunks[CypherResultRow]
+      streamAutocommit(stmt) |>>> Iteratee.getChunks[CypherResultRow]
 
   /**
    * Asynchronous, streaming (i.e. reactive) query.
@@ -22,7 +22,7 @@ trait Neo4jConnection {
    * immediately commited, regardless of the value for `autocommit`.
    * It will also never participate in any existing transaction.
    */
-  def streamAutoCommit(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
+  def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
 
   private[anormcypher] def beginTx(implicit ec: ExecutionContext): Future[Neo4jTransaction]
 
@@ -63,7 +63,7 @@ object Neo4jTransaction {
       override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) =
         conn.execute(stmt)
       override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
-        conn.streamAutoCommit(stmt)
+        conn.streamAutocommit(stmt)
 
       override def txId = nosup("No transaction id available in autocommit transaction")
       override def commit(implicit ec: ExecutionContext) = nosup("Cannot commit an autocommit transaction")

@@ -35,7 +35,7 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  override def streamAutoCommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
+  override def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
     val req = request(AutocommitEndpoint).withMethod(POST)
     val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
@@ -205,7 +205,6 @@ object Neo4jREST {
     Right(NeoRelationship(msa))
 }
 
-// TODO: map neo4j transaction result
 case class CypherRESTResult(columns: Vector[String], data: Seq[Neo4jResultSet])
 case class Neo4jResultSet(row: Seq[Any])
 

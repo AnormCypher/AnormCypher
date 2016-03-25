@@ -1,13 +1,14 @@
+## AnormCypher
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-generate-toc again -->
 **Table of Contents**
 
-- [-](#-)
 - [SBT Console Demo](#sbt-console-demo)
 - [Usage](#usage)
     - [Configuring a server](#configuring-a-server)
     - [Executing Cypher Queries](#executing-cypher-queries)
-    - [Retrieving data using the Stream API](#retrieving-data-using-the-stream-api)
-    - [Reactive Streaming](#reactive-streaming)
+    - [Retrieving data with CypherStatement.apply()](#retrieving-data-with-cypherstatementapply)
+    - [Reactive Streaming with Neo4jConnection.streamAutocommit](#reactive-streaming-with-neo4jconnectionstreamautocommit)
+    - [Transaction API](#transaction-api)
     - [Using Pattern Matching](#using-pattern-matching)
     - [Special data types](#special-data-types)
         - [Nodes](#nodes)
@@ -19,10 +20,8 @@
     - [License LGPL](#license-lgpl)
 
 <!-- markdown-toc end -->
-## AnormCypher
-
 [![Join the chat at https://gitter.im/AnormCypher/AnormCypher](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/AnormCypher/AnormCypher?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-This is a Neo4j client library for the HTTP Cypher endpoints.
+This is a Neo4j client library for the HTTP Cypher transactional endpoints.
 
 The goals of this library are to provide a great API to use Cypher, and it will be modeled after Anorm from Play,
 which I found to be pleasant to use with SQL. More info about Anorm can be found here:
@@ -32,7 +31,9 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-The latest release is 0.8.1.  Version 0.8.1 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+The latest release is 0.9.0.  Version 0.9.0 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+
+AnormCypher does not support transaction before 0.9.  The last release without transaction support is 0.8.1.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -42,7 +43,9 @@ If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
 ## SBT Console Demo
 
-Switch to an empty folder and create a build.sbt file with the following:
+Clone the AnormCypher repository from github, and run `sbt test:console`
+
+Alternatively, you can create a build.sbt file with the following:
 ``` Scala
 scalaVersion := "2.11.6"
 
@@ -53,13 +56,11 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.8.1"
+  "org.anormcypher" %% "anormcypher" % "0.9.0"
 )
 ```
 
-Run `sbt test:console`
-
-Note that async http client shipps with default logging level DEBUG.  In src/test/resources we include a logback-test.xml configuration that reduces the logging output.  If you want to see the details of the http client, you can simply run `sbt console` which won't include test-classes on the classpath.
+[Note] If you take the second step route from above, you will notice that the async http client ships with the default logging level set to DEBUG.  To reduce the noise from logging, you can use the logback-test.xml configuration in our src/test/resources.  If you want to see the details of the http client, you can simply run `sbt console` which won't include test-classes on the classpath.
 
 Assuming you have a local Neo4j Server running on the default port, try (note: this will create nodes on your database):
 ``` Scala
@@ -76,16 +77,19 @@ implicit val connection = Neo4jREST()(wsclient)
 implicit val ec = scala.concurrent.ExecutionContext.global
 
 // create some test nodes
-Cypher("""create (anorm {name:"AnormCypher"}), (test {name:"Test"})""").execute()
+Cypher("""create (anorm:anormcyphertest {name:"AnormCypher"}), (test:anormcyphertest {name:"Test"})""").execute()
 
 // a simple query
-val req = Cypher("start n=node(*) return n.name")
+val req = Cypher("match (n:anormcyphertest) return n.name")
 
 // get a stream of results back
 val stream = req()
 
 // get the results and put them into a list
 stream.map(row => {row[String]("n.name")}).toList
+
+// remove the test nodes
+Cypher("match (n:anormcyphertest) delete n")()
 
 // shut down WSClient
 wsclient.close()
@@ -105,16 +109,10 @@ import play.api.libs.ws._
 implicit val wsclient = ning.NingWSClient()
 
 // without auth
-implicit val connection = Neo4jREST("localhost", 7474, "/db/data/")
+implicit val connection = Neo4jREST("localhost", 7474)
 
 // or with basic auth
-implicit val connection2 = Neo4jREST("localhost", 7474, "/db/data/", "username", "password")
-```
-
-For 1.8.x or older, you may need to specify a cypher endpoint like so (the default goes to the 1.9/2.0 style endpoint):
-
-```
-implicit val connection = Neo4jREST("localhost", 7474, "/db/data/", cypherEndpoint = "ext/CypherPlugin/graphdb/execute_query")
+implicit val connection2 = Neo4jREST("localhost", 7474, "username", "password")
 ```
 
 ### Executing Cypher Queries
@@ -136,10 +134,6 @@ val result: Boolean = Cypher("START n=node(0) RETURN n").execute()
 
 The `execute()` method returns a Boolean value indicating whether the execution was successful.
 
-To execute an update, you can use executeUpdate(), which returns the number of `(Nodes, Relationships, Properties)` updated. Note: NOT SUPPORTED YET.
-
-`val result: (Int, Int, Int) = Cypher("START n=node(0) DELETE n").executeUpdate()`
-
 Since Scala supports multi-line strings, feel free to use them for complex Cypher statements:
 
 ``` Scala
@@ -155,7 +149,7 @@ val cypherQuery = Cypher(
   """
     start n=node(*) 
     match n-->m
-    where n.code = 'FRA';
+    where n.code = 'FRA'
     return n,m;
   """
 )
@@ -174,16 +168,16 @@ Cypher(
 ).on("countryCode" -> "FRA")
 ```
 
-### Retrieving data using the Stream API
-The first way to access the results of a return query is to use the Stream API.
+### Retrieving data with CypherStatement.apply()
+The first way to access the results of a return query is to use `statement.apply()` or simply `statement()`
 
-When you call `apply()` on any Cypher statement, you will receive a lazy `Stream` of `CypherRow` instances, where each row can be seen as a dictionary:
+When you call `apply()` on any Cypher statement, you will receive a `Seq` of `CypherRow` instances, where each row can be seen as a dictionary:
 
 ``` Scala
 // Create Cypher query
 val allCountries = Cypher("start n=node(*) where n.type = 'Country' return n.code as code, n.name as name")
  
-// Transform the resulting Stream[CypherRow] to a List[(String,String)]
+// Transform the resulting Seq[CypherRow] to a List[(String,String)]
 val countries = allCountries.apply().map(row => 
   row[String]("code") -> row[String]("name")
 ).toList
@@ -200,40 +194,40 @@ val countryCount = firstRow[Long]("c")
 // countryCount: Long = 3
 ```
 
-### Reactive Streaming
+### Reactive Streaming with Neo4jConnection.streamAutocommit
 Occasionally we need to handle a very large data set returned from the Neo4j server -- a dataset so large that it would exhaust the JVM's heap space if the entire server response were read in before being processed.  There might be situations where we cannot avoid loading the entire data set; in such cases the only solution would be increasing the maximum heap size and running the program on a machine with more memory.  However, most of the time, processing could start without having the complete data set.  For example, if all we have to do is to perform some transformation on each CypherResultRow and then stream the data to the client, there is no reason to wait till we have received all the data from the server; we can use reactive streaming to start working as soon as we receive one CypherResultRow.
 
-AnormCypher uses Play's Enumerator|Iteratee [API](https://www.playframework.com/documentation/2.4.x/Enumerators) to achieve reactive streaming.  Specifically, the Neo4jREST class provides the `query` method with the following signature:
+AnormCypher uses Play's Enumerator|Iteratee [API](https://www.playframework.com/documentation/2.4.x/Enumerators) to achieve reactive streaming.  Specifically, the Neo4jConnection trait defines the `streamAutocommit` method with the following signature:
 
 
 ``` Scala
 import play.api.libs.iteratee._
 
-class Neo4jREST(...) {
-  /** Asynchornous, streaming (i.e. reactive) query */
-  def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = ...
+trait Neo4jConnection {
+  ...
+  def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
   ...
 }
 
 ```
 
-while another method, `sendQuery`, consumes the reactive stream (`Enumerator[CypherResultRow]`) produced by this method and returns the entire response as a Sequence, asynchronously
+while another method, `execute`, consumes the reactive stream (`Enumerator[CypherResultRow]`) produced by this method and returns the entire response as a Sequence, asynchronously
 
 ``` Scala
-class Neo4jREST(...) {
+trait Neo4jConnection {
   /** Asynchronous, non-streaming query */
-  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
+  def execute(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+      streamAutocommit(stmt) |>>> Iteratee.getChunks[CypherResultRow]
 }
 ```
 
-The `sendQuery` method keeps the original method signature (including parameter names) to maintain backwards compatibility.  But its implementation has been rewritten to reuse the `query` method by use of the `getChunks` factory method in Play's Iteratee object.
+As the method name implies, the query is executed in its own separate transaction, because the large data set it's designed to work with prohibits the transaction to be held open across requests. (We will talk about transaction a little bit later)
 
 One obvious gain is that, if you are using Play for the web front end, and Neo4j as the data store, you can now stream cypher result sets directly to the browsing client using AnomrCypher as a bridge.
 
 ``` Scala
 object MyController extends Controller {
-  def allNodes: Enumerator[CypherResultRow] = neo4jconn.query(CypherStatement("match n return n"))
+  def allNodes: Enumerator[CypherResultRow] = neo4jconn.streamAutocommit(CypherStatement("match n return n"))
 
   def stream = Action {
 	  Ok.chunked(allNodes map (_.toString))
@@ -249,6 +243,25 @@ object MyController extends Controller {
 
 Consult [James Roper's article](https://jazzy.id.au/2012/11/06/iteratees_for_imperative_programmers.html) for a good introduction to Enumerator and Iteratee and to the problems they are designed to solve.
 
+### Transaction API
+AnormCypher supports transactional cypher with the `Neo4jTransaction.withTx` method.  The method is a standard Loan Pattern implementation, starting a new transaction before passing the transction to the code block, then either commiting the transaction if the code executed successfully or rolling back the transaction if an exception is throw during code execution.  A typical use of the API is as follows:
+``` Scala
+val Tag = "anormcyphertest"
+val res = Neo4jTransaction.withTx { implicit tx =>
+      val res1 = Cypher(s"""create (n:${Tag}{name: "n1", level: 1}) return n.name as name, n.level as level """)()
+//      res1(0)[String]("name") shouldBe "n1"
+
+      val res2 = Cypher(s"""create (n:${Tag}{name: "n2", level: 2}) return n.name as name""")()
+//      res2(0)[String]("name") shouldBe "n2"
+
+      val res3 = Cypher(s"""match (n1:${Tag}{name: "n1"}), (n2:${Tag}{name: "n2"})
+create (n1)-[r:hasChildren]->(n2)""")()
+    }
+Await.result(res, 3.seconds)
+
+```
+One important to remember is that, within the code block passed to `withTx`, the `CypherStatement`s should all execute sequentially.  This is best ensured by calling `apply()` on each statement.  It is possible to use results from previous statements within the same transaction.
+
 ### Using Pattern Matching
 You can also use Pattern Matching to match and extract the CypherRow content. In this case the column name doesn’t matter. Only the order and the type of the parameters is used to match.
 
@@ -257,7 +270,7 @@ The following example transforms each row to the correct Scala type:
 ``` Scala
 case class SmallCountry(name:String) 
 case class BigCountry(name:String) 
-case class France
+case class France()
 
 // NOTE: case CypherRow syntax is NOT YET SUPPORTED
 val countries = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n.population as pop")().collect {
@@ -265,10 +278,7 @@ val countries = Cypher("start n=node(*) where n.type = 'Country' return n.name a
   case CypherRow(name:String, pop:Int) if(pop > 1000000) => BigCountry(name)
   case CypherRow(name:String, _) => SmallCountry(name)      
 }
-// countries: scala.collection.immutable.Stream[Product with Serializable] = Stream(BigCountry(Germany), ?)
-
-val countryList = countries.toList
-// countryList: List[Product with Serializable] = List(BigCountry(Germany), France(), SmallCountry(Monaco))
+// countries: Seq[Product with Serializable] = List(BigCountry(Germany), France(), SmallCountry(Monaco))
 ```
 
 Note that since `collect(…)` ignores the cases where the partial function isn’t defined, it allows your code to safely ignore rows that you don’t expect.
@@ -288,7 +298,7 @@ Here we specifically chose to use map, as we want an exception if the row isn’
 
 A `Node` is just a simple Scala `case class`, not quite as type-safe as configuring your own:
 ``` Scala
-case class NeoNode(id:Int, props:Map[String,Any])
+case class NeoNode(props:Map[String,Any])
 ```
 
 #### Relationships
@@ -305,7 +315,7 @@ Here we specifically chose to use map, as we want an exception if the row isn’
 
 Similarly, a `Relationship` is just a simple Scala `case class`, not quite as type-safe as configuring your own:
 ``` Scala
-case class NeoRelationship(id:Int, props:Map[String,Any])
+case class NeoRelationship(props:Map[String,Any])
 ```
 
 ### Dealing with Nullable columns
