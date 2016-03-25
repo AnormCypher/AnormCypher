@@ -1,60 +1,106 @@
 package org.anormcypher
 
+import play.api.http.HttpVerbs.{DELETE, POST}
 import play.api.libs.iteratee._
 import play.api.libs.json._, Json._
 import play.api.libs.ws._
-import scala.concurrent._
+import scala.concurrent._, duration._
 
-class Neo4jREST(wsclient: WSClient,
-  val host: String = "localhost", val port: Int = 7474, val path: String = "/db/data/",
-                val username: String = "", val password: String = "",
-                val cypherEndpoint: String = "cypher", val https: Boolean = false) {
+class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
+  val username: String, val password: String, val https: Boolean) extends Neo4jConnection {
+  import Neo4jREST._
 
   private val headers = Seq(
     "Accept" -> "application/json",
     "Content-Type" -> "application/json",
     "X-Stream" -> "true",
-    "User-Agent" -> "AnormCypher/0.8.1"
+    "User-Agent" -> "AnormCypher/0.9.0"
   )
 
-  private val baseURL = {
+  protected val baseUrl = {
     val protocol = if (https) "https" else "http"
-    val pth = path.stripPrefix("/")
-    s"$protocol://$host:$port/$pth"
+    s"$protocol://$host:$port/db/data/transaction"
   }
 
-  private val cypherUrl = baseURL + cypherEndpoint
+  // request body to begin a transaction
+  val EmptyStatements = "{\"statements\":[]}"
+  @inline private def txEndpoint(txid: String) = baseUrl + "/" + txid
+  @inline private def txCommitUrl(txid: String) = txEndpoint(txid) + "/commit"
 
-  private def request = {
-    val req = wsclient.url(cypherUrl).withHeaders(headers:_*)
+  val AutocommitEndpoint = baseUrl + "/commit"
+
+  protected def request(endpoint: String): WSRequest = {
+    val req = wsclient.url(endpoint).withHeaders(headers:_*)
+    // TODO: allow different authentication schemes
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  /** Asynchronous, non-streaming query */
-  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      query(cypherStatement)(ec) |>>> Iteratee.getChunks[CypherResultRow]
-
-  /** Asynchornous, streaming (i.e. reactive) query */
-  def query(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow] = {
-    import play.api.http._
-
-    val req = request.withMethod(HttpVerbs.POST)
-    val source = req.withBody(Json.toJson(stmt)(Neo4jREST.cypherStatementWrites)).stream()
+  override def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
+    val req = request(AutocommitEndpoint).withMethod(POST)
+    val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
     Enumerator.flatten(source map { case (resp, body) =>
-      if (resp.status == 400)
-        Neo4jStream.errMsg(body)
-      else
         Neo4jStream.parse(body)
     })
+  }
+
+  private[anormcypher] override def executeInTx(stmt: CypherStatement)(
+    implicit tx: Neo4jTransaction, ec: ExecutionContext) =
+    for {
+      resp <- request(txEndpoint(tx.txId)).post(Json.toJson(wrapCypher(stmt)))
+    } yield {
+      raiseErrIfAny("execute", resp)
+      val res = (resp.json \ "results").get.as[Array[JsObject]]
+      val cypherRESTResult = Json.fromJson[CypherRESTResult](res(0))(cypherRESTResultReads).get
+      val metaDataItems = cypherRESTResult.columns.map {
+        c => MetaDataItem(c, false, "String")
+      }.toList
+      val metaData = MetaData(metaDataItems)
+      cypherRESTResult.data.map {
+        d => CypherResultRow(metaData, d.row.toList)
+      }
+    }
+
+  private[anormcypher] def raiseErrIfAny(msg: String, resp: WSResponse) = {
+    def raiseErr = throw new RuntimeException(
+      s"${msg}: Server responded with code [${resp.status}] and body: ${resp.body}")
+
+    if (resp.status != 200) raiseErr
+      (resp.json \ "errors").get.asOpt[Array[JsValue]] match {
+        case Some(arr) if !arr.isEmpty => raiseErr
+        case _ =>
+      }
+  }
+
+  private[anormcypher] override def beginTx(implicit ec: ExecutionContext) =
+    for {
+      resp <- request(baseUrl).post(EmptyStatements)
+      endpoint = (resp.json \ "commit").get.as[String]
+      part = endpoint.substring(baseUrl.length + 1)
+      txid = part.substring(0, part.lastIndexOf('/'))
+    } yield new Neo4jRestTransaction(txid)
+
+  // TODO: configure timeout when waiting for server response
+  case class Neo4jRestTransaction(override val txId: String) extends Neo4jTransaction {
+    override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) = executeInTx(stmt)(this, ec)
+
+    override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+      nosup("Streaming is not supported in open transactions")
+
+    override def commit(implicit ec: ExecutionContext) =
+      raiseErrIfAny(s"Unable to commit transaction [$txId]", Await.result(
+        request(txCommitUrl(txId)).post(EmptyStatements), 10.seconds))
+
+    override def rollback(implicit ec: ExecutionContext) =
+      raiseErrIfAny(s"Unable to rollback transaction [$txId]", Await.result(
+        request(txEndpoint(txId)).delete(), 10.seconds))
   }
 
 }
 
 object Neo4jREST {
-  def apply(host: String = "localhost", port: Int = 7474, path: String = "/db/data/",
-            username: String = "", password: String = "", cypherEndpoint: String = "cypher", https: Boolean = false)(implicit wsclient: WSClient) =
-    new Neo4jREST(wsclient, host, port, path, username, password, cypherEndpoint, https)
+  def apply(host: String = "localhost", port: Int = 7474, username: String = "", password: String = "", https: Boolean = false)(implicit wsclient: WSClient) =
+    new Neo4jREST(wsclient, host, port, username, password, https)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {
@@ -119,7 +165,11 @@ object Neo4jREST {
       }.toSeq: _*)
   }
 
+  case class CypherStatements(statements: Seq[CypherStatement])
+
+  @inline private[anormcypher] def wrapCypher(stmt: CypherStatement): CypherStatements = CypherStatements(Seq(stmt))
   implicit val cypherStatementWrites = Json.writes[CypherStatement]
+  implicit val statementsWrites: Writes[CypherStatements] = Json.writes[CypherStatements]
 
   implicit val seqReads = new Reads[Seq[Any]] {
     def read(xs: Seq[JsValue]): Seq[Any] = xs map {
@@ -138,6 +188,7 @@ object Neo4jREST {
     }
   }
 
+  implicit val Neo4jResultSetReads = Json.reads[Neo4jResultSet]
   implicit val cypherRESTResultReads = Json.reads[CypherRESTResult]
 
   object IdURLExtractor {
@@ -147,23 +198,16 @@ object Neo4jREST {
     }
   }
 
-  def asNode(msa: Map[String, Any]): MayErr[CypherRequestError, NeoNode] = (msa.get("self"), msa.get("data")) match {
-    case (Some(IdURLExtractor(id)), Some(props: Map[_, _])) if props.keys.forall(_.isInstanceOf[String]) =>
-      Right(NeoNode(id, props.asInstanceOf[Map[String, Any]]))
-    case x => Left(TypeDoesNotMatch("Unexpected type while building a Node"))
-  }
+  def asNode(msa: Map[String, Any]): MayErr[CypherRequestError, NeoNode] =
+    Right(NeoNode(msa))
 
   def asRelationship(msa: Map[String, Any]): MayErr[CypherRequestError, NeoRelationship] =
-    (msa.get("self"), msa.get("start"), msa.get("end"), msa.get("data")) match {
-      case (Some(IdURLExtractor(id)), Some(IdURLExtractor(sId)), Some(IdURLExtractor(eId)), Some(props: Map[_, _]))
-        if props.keys.forall(_.isInstanceOf[String]) =>
-        Right(NeoRelationship(id, props.asInstanceOf[Map[String, Any]], sId, eId))
-      case _ => Left(TypeDoesNotMatch("Unexpected type while building a relationship"))
-    }
+    Right(NeoRelationship(msa))
 }
 
-case class CypherRESTResult(columns: Vector[String], data: Seq[Seq[Any]])
+case class CypherRESTResult(columns: Vector[String], data: Seq[Neo4jResultSet])
+case class Neo4jResultSet(row: Seq[Any])
 
-case class NeoNode(id: Long, props: Map[String, Any])
+case class NeoNode(props: Map[String, Any])
 
-case class NeoRelationship(id: Long, props: Map[String, Any], start: Long, end: Long)
+case class NeoRelationship(props: Map[String, Any])

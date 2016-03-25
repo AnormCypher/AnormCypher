@@ -37,7 +37,7 @@ class CypherParserSpec extends BaseAnormCypherSpec {
 
   "CypherParser" should "be able to parse a node" in {
     case class Country(name:String, node:NeoNode)
-    val results = Cypher("start n=node(*) where n.type = 'Country' return n.name as name, n order by name desc")().map {
+    val results = Cypher("start n=node(*) where n.type = \"Country\" return n.name as name, n order by name desc")().map {
       row => Country(row[String]("name"), row[NeoNode]("n"))
     }.toList
     results.head.name should equal ("United States")
