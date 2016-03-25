@@ -1,3 +1,24 @@
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-generate-toc again -->
+**Table of Contents**
+
+- [-](#-)
+- [SBT Console Demo](#sbt-console-demo)
+- [Usage](#usage)
+    - [Configuring a server](#configuring-a-server)
+    - [Executing Cypher Queries](#executing-cypher-queries)
+    - [Retrieving data using the Stream API](#retrieving-data-using-the-stream-api)
+    - [Reactive Streaming](#reactive-streaming)
+    - [Using Pattern Matching](#using-pattern-matching)
+    - [Special data types](#special-data-types)
+        - [Nodes](#nodes)
+        - [Relationships](#relationships)
+        - [Dealing with Nullable columns](#dealing-with-nullable-columns)
+        - [Using the Parser API (the Parser API is a work in progress)](#using-the-parser-api-the-parser-api-is-a-work-in-progress)
+    - [Contributors](#contributors)
+    - [Thanks](#thanks)
+    - [License LGPL](#license-lgpl)
+
+<!-- markdown-toc end -->
 ## AnormCypher
 
 [![Join the chat at https://gitter.im/AnormCypher/AnormCypher](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/AnormCypher/AnormCypher?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
