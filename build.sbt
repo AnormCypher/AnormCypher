@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.9.0"
+version := "0.9.1-SNAPSHOT"
 
 publishMavenStyle := true
 
@@ -8,7 +8,7 @@ organization := "org.anormcypher"
 
 publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.8"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
@@ -18,14 +18,14 @@ resolvers += "Bintray" at "http://dl.bintray.com/typesafe/maven-releases/com/typ
 
 parallelExecution in Test := false
 
-val playVersion = "2.4.3"
+val playVersion = "2.5.3"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
   "com.typesafe.play" %% "play-json" % playVersion,
   "com.typesafe.play" %% "play-ws" % playVersion,
   "com.typesafe.play" %% "play-iteratees" % playVersion,
-  "com.typesafe.play.extras" %% "iteratees-extras" % "1.5.0",
+  "com.typesafe.play.extras" %% "iteratees-extras" % "1.5.1-SNAPSHOT",
   "org.scala-lang.modules" %% "scala-async" % "0.9.2"
 )
 

@@ -2,12 +2,20 @@ package org.anormcypher
 
 import play.api.http.HttpVerbs.{DELETE, POST}
 import play.api.libs.iteratee._
-import play.api.libs.json._, Json._
+import play.api.libs.json._
+import Json._
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
+import akka.util.ByteString
+import play.api.libs.streams.Streams
 import play.api.libs.ws._
-import scala.concurrent._, duration._
+
+import scala.concurrent._
+import duration._
 
 class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
-  val username: String, val password: String, val https: Boolean) extends Neo4jConnection {
+  val username: String, val password: String, val https: Boolean)
+  (implicit materializer: Materializer) extends Neo4jConnection {
   import Neo4jREST._
 
   private val headers = Seq(
@@ -39,8 +47,9 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     val req = request(AutocommitEndpoint).withMethod(POST)
     val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
-    Enumerator.flatten(source map { case (resp, body) =>
-        Neo4jStream.parse(body)
+    Enumerator.flatten(source map { response =>
+      val publisher = response.body.runWith(Sink.asPublisher[ByteString](fanout = false))
+      Neo4jStream.parse(Streams.publisherToEnumerator(publisher).map(_.toArray))
     })
   }
 
@@ -100,7 +109,8 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
 }
 
 object Neo4jREST {
-  def apply(host: String = "localhost", port: Int = 7474, username: String = "", password: String = "", https: Boolean = false)(implicit wsclient: WSClient) =
+  def apply(host: String = "localhost", port: Int = 7474, username: String = "", password: String = "", https: Boolean = false)
+           (implicit wsclient: WSClient, materializer: Materializer) =
     new Neo4jREST(wsclient, host, port, username, password, https)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
