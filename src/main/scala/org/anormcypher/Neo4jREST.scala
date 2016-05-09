@@ -13,9 +13,9 @@ import play.api.libs.ws._
 import scala.concurrent._
 import duration._
 
-class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
-  val username: String, val password: String, val https: Boolean)
-  (implicit materializer: Materializer) extends Neo4jConnection {
+class Neo4jREST(val wsclient: WSClient, val materializer: Materializer,
+  val host: String, val port: Int, val username: String, 
+  val password: String, val https: Boolean) extends Neo4jConnection {
   import Neo4jREST._
 
   private val headers = Seq(
@@ -48,7 +48,7 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
 
     Enumerator.flatten(source map { response =>
-      val publisher = response.body.runWith(Sink.asPublisher[ByteString](fanout = false))
+      val publisher = response.body.runWith(Sink.asPublisher[ByteString](fanout = false))(materializer)
       Neo4jStream.parse(Streams.publisherToEnumerator(publisher).map(_.toArray))
     })
   }
@@ -111,7 +111,7 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
 object Neo4jREST {
   def apply(host: String = "localhost", port: Int = 7474, username: String = "", password: String = "", https: Boolean = false)
            (implicit wsclient: WSClient, materializer: Materializer) =
-    new Neo4jREST(wsclient, host, port, username, password, https)
+    new Neo4jREST(wsclient, materializer, host, port, username, password, https)
 
   implicit val mapFormat = new Format[Map[String, Any]] {
     def read(xs: Seq[(String, JsValue)]): Map[String, Any] = (xs map {
