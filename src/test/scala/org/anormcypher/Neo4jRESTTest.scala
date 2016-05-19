@@ -82,8 +82,8 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
       CREATE (n {anormcyphername:'n8'}), 
         (n2 {anormcyphername:'n9'}), 
         (n3 {anormcyphername:'n10'}), 
-        n-[r:test {name:'r'}]->n2, 
-        n2-[r2:test {name:'r2'}]->n3
+        (n)-[r:test {name:'r'}]->(n2),
+        (n2)-[r2:test {name:'r2'}]->(n3)
         return r, r2;
       """)().map {
       row => (row[NeoRelationship]("r"), row[NeoRelationship]("r2"))

@@ -18,6 +18,8 @@ resolvers += "Bintray" at "http://dl.bintray.com/typesafe/maven-releases/com/typ
 
 parallelExecution in Test := false
 
+logBuffered in Test := false
+
 val playVersion = "2.4.3"
 
 libraryDependencies ++= Seq(

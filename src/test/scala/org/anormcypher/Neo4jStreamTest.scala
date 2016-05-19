@@ -97,22 +97,6 @@ class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
     )
   }
 
-  it should "support Neo4j 3.0.x response" in {
-    val resp = """
-    {"results":[{"columns":["n.name"],"data":[{"row":["AnormCypher"],"meta":[null]},{"row":["Test"],"meta":[null]}]}],"errors":[]}
-""""
-    val f = Neo4jStream.parse(chunking(resp)) |>>> Iteratee.getChunks[CypherResultRow]
-    val result = f.futureValue
-    result(0).metaData shouldBe MetaData(List(
-      MetaDataItem("n.name", false, "String")
-    ))
-
-    result.map(_.data) shouldBe Seq(
-      Seq("AnormCypher"),
-      Seq("Test")
-    )
-  }
-
   it should "propagate error from bad json format" in {
     val whole = """{property: "something"}"""
     val f = Neo4jStream.parse(chunking(whole)) |>>> Iteratee.getChunks[CypherResultRow]
