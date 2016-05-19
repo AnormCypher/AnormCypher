@@ -117,19 +117,13 @@ object Neo4jStream {
     result <- ch match {
       case None => Done[CharString, Seq[Any]](Seq.empty, Input.EOF)
       case Some('{') => for {
-        _ <- openBrace
-        _ <- wsExpect("row")
-        _ <- wsExpect(':')
-        jsarr <- jsSimpleArray
-        jsres = Json.fromJson[Seq[Any]](jsarr)(Neo4jREST.seqReads)
+        jsobj <- jsSimpleObject
+        jsres = Json.fromJson[Seq[Any]](jsobj.value("row"))(Neo4jREST.seqReads)
+        // TODO Neo4j 3.0 returns additional meta data structure, may need to capture
       } yield jsres.get
       case Some(',') => drop(1).flatMap(_ => row)
       case in@_ =>
-        for {
-          _ <- dropWhile(_ != '}')
-          _ <- drop(1)
-          r <- row
-        } yield r
+        dropWhile(_ => true).flatMap(_ => row) // consume the rest of the stream
     }
   } yield result
 

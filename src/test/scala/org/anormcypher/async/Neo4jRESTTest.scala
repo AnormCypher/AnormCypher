@@ -54,7 +54,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   it should "be able to retrieve properties of relationships" in {
     val results = Cypher("""
       START n=node(*)
-      match n-[r]->m
+      match (n)-[r]->(m)
       where n.anormcyphername = 'n5'
       RETURN r;
       """).async().futureValue
@@ -73,8 +73,8 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
       CREATE (n {anormcyphername:'n8'}), 
         (n2 {anormcyphername:'n9'}), 
         (n3 {anormcyphername:'n10'}), 
-        n-[r:test {name:'r'}]->n2, 
-        n2-[r2:test {name:'r2'}]->n3
+        (n)-[r:test {name:'r'}]->(n2),
+        (n2)-[r2:test {name:'r2'}]->(n3)
         return r, r2;
       """).async().futureValue.map {
       row => (row[NeoRelationship]("r"), row[NeoRelationship]("r2"))
@@ -82,7 +82,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
     val results = Cypher("""
       START n=node(*) 
       match p=(n)-[r*2]->(m)
-      where has(n.anormcyphername) 
+      where exists(n.anormcyphername)
       and n.anormcyphername = "n8"
       RETURN r;
       """).async().futureValue

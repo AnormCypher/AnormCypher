@@ -12,7 +12,7 @@ trait BaseAnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach
   val Tag = "anormcyphertest"
 
   override def afterEach = {
-    Cypher(s"match (n:${Tag}) optional match n-[r]-() delete n,r;")()
+    Cypher(s"match (n:${Tag}) optional match (n)-[r]-() delete n,r;")()
   }
 
   override def afterAll = {

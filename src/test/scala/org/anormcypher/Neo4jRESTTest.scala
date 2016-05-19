@@ -91,7 +91,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
     val results = Cypher("""
       START n=node(*) 
       match p=(n)-[r*2]->(m)
-      where has(n.anormcyphername) 
+      where exists(n.anormcyphername)
       and n.anormcyphername = "n8"
       RETURN r;
       """)()
