@@ -10,13 +10,13 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
       (n3 {anormcyphername:'n3'}),
-      n-[:test {name:'r'}]->n2,
-      n2-[:test {name:'r2'}]->n3;
+      (n)-[:test {name:'r'}]->(n2),
+      (n2)-[:test {name:'r2'}]->(n3);
       """).apply()
     Cypher("""
       CREATE (n5 {anormcyphername:'n5'}), 
         (n6 {anormcyphername:'n6'}), 
-        n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"]}]->n6;
+        (n5)-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"]}]->(n6);
       """).apply()
     Cypher("""
       CREATE (n7 {anormcyphername:'nprops', i:1, arr:[1,2,3], arrc:['a','b','c']});
@@ -24,7 +24,7 @@ class Neo4jRESTAsyncSpec extends BaseAsyncSpec  {
   }
 
   override def afterEach = {
-    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;").apply()
+    Cypher("match (n) where exists(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;").apply()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {

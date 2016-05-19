@@ -6,13 +6,13 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
       CREATE (n {anormcyphername:'n'}),
       (n2 {anormcyphername:'n2'}),
       (n3 {anormcyphername:'n3'}),
-      n-[:test {name:'r'}]->n2,
-      n2-[:test {name:'r2'}]->n3;
+      (n)-[:test {name:'r'}]->(n2),
+      (n2)-[:test {name:'r2'}]->(n3);
       """)()
     Cypher("""
       CREATE (n5 {anormcyphername:'n5'}), 
         (n6 {anormcyphername:'n6'}), 
-        n5-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"], arrb:[false, false, true, false]}]->n6;
+        (n5)-[:test {name:'r', i:1, arr:[1,2,3], arrc:["a","b","c"], arrb:[false, false, true, false]}]->(n6);
       """)()
     Cypher("""
       CREATE (n7 {anormcyphername:'nprops', i:1, arr:[1,2,3], arrc:['a','b','c'], arrb:[false, false, true, false]});
@@ -20,7 +20,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
   }
 
   override def afterEach = {
-    Cypher("match (n) where has(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;")()
+    Cypher("match (n) where exists(n.anormcyphername) optional match (n)-[r]-() DELETE n,r;")()
   }
 
   "Neo4jREST" should "be able to retrieve properties of nodes" in {
@@ -62,7 +62,7 @@ class Neo4jRESTSpec extends BaseAnormCypherSpec {
   it should "be able to retrieve properties of relationships" in {
     val results = Cypher("""
       START n=node(*) 
-      match n-[r]->m 
+      match (n)-[r]->(m)
       where n.anormcyphername = 'n5'
       RETURN r;
       """)()
