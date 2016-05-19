@@ -1,6 +1,6 @@
 name := "AnormCypher"
  
-version := "0.9.0"
+version := "0.9.1"
 
 publishMavenStyle := true
 
@@ -8,7 +8,7 @@ organization := "org.anormcypher"
 
 publishTo := Some(Resolver.sftp("AnormCypher repo", "repo.anormcypher.org", "/home/wfreeman/www/repo.anormcypher.org"))
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.8"
 
 scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feature")
 
