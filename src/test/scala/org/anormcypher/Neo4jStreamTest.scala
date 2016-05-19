@@ -1,48 +1,9 @@
 package org.anormcypher
 
-import org.scalatest._, concurrent._, time._
-
 import play.api.libs.iteratee._
-import play.extras.iteratees._
 import scala.concurrent.{Await, Future}
 
-class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
-  val rand = scala.util.Random
-  def nonZero(upTo: Int) = rand.nextInt(upTo) match {
-    case 0 => 1
-    case n => n
-  }
-
-  def randomSplit(s: String): Seq[String] = {
-    def split1(acc: Vector[String], rem: String): Vector[String] = rem.length match {
-      case n if n < 5 => acc :+ rem
-      case n =>
-        val (first, rest) = rem.splitAt(nonZero(n/2))
-        split1(acc :+ first, rest)
-    }
-    split1(Vector[String](), s)
-  }
-
-  def chunking(whole: String): Enumerator[Array[Byte]] =
-    (randomSplit(whole).map(s => Enumerator(s.getBytes)) foldRight Enumerator.empty[Array[Byte]]) {
-      (chunk, ret) => chunk andThen ret
-    }
-
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(3, Seconds))
-  implicit val ec = scala.concurrent.ExecutionContext.global
-
-  def afterMatchString(value: String): Iteratee[CharString, List[String]] =
-    for {
-      _ <- Neo4jStream.matchString(value)
-      r <- Iteratee.getChunks[CharString]
-    } yield r.map(_.mkString)
-
-  def leftover(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): String =
-    run(src, sink).futureValue.mkString
-
-  def run(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): Future[List[String]] =
-    src.map(_.getBytes) &> Encoding.decode() |>>> sink
-
+class Neo4jStreamTest extends BaseStreamSpec {
   "Neo4jStream.matchString" should "be able to accept empty string to match" in {
     val src = Enumerator("abc", "def", "g")
     val sink = afterMatchString("")
@@ -77,8 +38,7 @@ class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
     val whole = """
     {"results":[{"columns":["id","name"],"data":[{"row":[1,"Organism"]},{"row":[2,"Gene Expression Role"]},{"row": [3,"Mutation Type"]},{"row": [4,"Gene"]},{"row": [5,"DNA Part"]},{"row": [6,"Plasmid"]},{"row": [7,"Strain"]},{"row": [8,"Mutation"]},{"row": [9,"User"]}]}], "errors":[]}
 """
-    val f = Neo4jStream.parse(chunking(whole)) |>>> Iteratee.getChunks[CypherResultRow]
-    val result = f.futureValue
+    val result = parse(whole)
     val metadata = result(0).metaData
     metadata shouldBe MetaData(List(
       MetaDataItem("id", false, "String"),
@@ -106,8 +66,7 @@ class Neo4jStreamTest extends FlatSpec with Matchers with ScalaFutures {
 
   it should "treat empty array for both results and errors as succesful transaction" in {
     val json = """{"results":[], "errors":[]}"""
-    val f = Neo4jStream.parse(chunking(json)) |>>> Iteratee.getChunks[CypherResultRow]
-    f.futureValue shouldBe Seq.empty
+    parse(json) shouldBe Seq.empty
   }
 
   it should "extract the 'message' portion from an neo4j error response" in {
