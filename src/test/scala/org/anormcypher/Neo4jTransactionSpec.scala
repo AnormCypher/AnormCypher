@@ -7,7 +7,7 @@ class Neo4jTransactionSpec extends async.BaseAsyncSpec {
 
   "Neo4jTransaction" should "provide an autocommit Neo4jTransaction in the implicit scope" in {
     // normal implicit scope contains an autocommit
-    intercept[UnsupportedOperationException] { implicitly[Neo4jTransaction].txId }
+    intercept[UnsupportedOperationException] { implicitly[Neo4jTransaction].commit }
   }
 
   "Neo4jConnection.beginTx" should "return a transaction id" in {

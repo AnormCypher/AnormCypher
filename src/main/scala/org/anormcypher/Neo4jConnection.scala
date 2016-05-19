@@ -65,7 +65,9 @@ object Neo4jTransaction {
       override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
         conn.streamAutocommit(stmt)
 
-      override def txId = nosup("No transaction id available in autocommit transaction")
+      // return a string instead of throwing as it's a legitimate use
+      // case for client to query the transaction id for logging
+      override val txId = "No transaction id available in autocommit transaction"
       override def commit(implicit ec: ExecutionContext) = nosup("Cannot commit an autocommit transaction")
       override def rollback(implicit ec: ExecutionContext) = nosup("Cannot rollback an autocommit transaction")
     }

@@ -71,7 +71,9 @@ import play.api.libs.ws._
 val wsclient = ning.NingWSClient()
 
 // Setup the Rest Client
-implicit val connection = Neo4jREST()(wsclient)
+// Need to add the Neo4jConnection type annotation so that the default
+// Neo4jConnection -> Neo4jTransaction conversion is in the implicit scope
+implicit val connection: Neo4jConnection = Neo4jREST()(wsclient)
 
 // Provide an ExecutionContext
 implicit val ec = scala.concurrent.ExecutionContext.global
@@ -109,10 +111,10 @@ import play.api.libs.ws._
 implicit val wsclient = ning.NingWSClient()
 
 // without auth
-implicit val connection = Neo4jREST("localhost", 7474)
+implicit val connection: Neo4jConnection = Neo4jREST("localhost", 7474)
 
 // or with basic auth
-implicit val connection2 = Neo4jREST("localhost", 7474, "username", "password")
+implicit val connection2: Neo4jConnection = Neo4jREST("localhost", 7474, "username", "password")
 ```
 
 ### Executing Cypher Queries
@@ -127,7 +129,7 @@ import play.api.libs.ws._
 
 // Provide an instance of WSClient
 implicit val wsclient = ning.NingWSClient()
-implicit val connection = Neo4jREST()
+implicit val connection: Neo4jConnection = Neo4jREST()
 
 val result: Boolean = Cypher("START n=node(0) RETURN n").execute()
 ```

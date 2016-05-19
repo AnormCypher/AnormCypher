@@ -91,9 +91,10 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
       raiseErrIfAny(s"Unable to commit transaction [$txId]", Await.result(
         request(txCommitUrl(txId)).post(EmptyStatements), 10.seconds))
 
+    // sometimes the transaction is rolled back automatically by a bad request
+    // in this case, our call to rollback would also return an error
     override def rollback(implicit ec: ExecutionContext) =
-      raiseErrIfAny(s"Unable to rollback transaction [$txId]", Await.result(
-        request(txEndpoint(txId)).delete(), 10.seconds))
+      Await.result(request(txEndpoint(txId)).delete(), 10.seconds)
   }
 
 }

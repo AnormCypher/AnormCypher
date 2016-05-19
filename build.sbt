@@ -18,6 +18,8 @@ resolvers += "Bintray" at "http://dl.bintray.com/typesafe/maven-releases/com/typ
 
 parallelExecution in Test := false
 
+logBuffered in Test := false
+
 val playVersion = "2.4.3"
 
 libraryDependencies ++= Seq(
@@ -39,6 +41,7 @@ seq(lsSettings :_*)
 (description in LsKeys.lsync) :=
   "A Neo4j library modeled after Play's Anorm."
 
+/**
 initialCommands in console := """
 import org.anormcypher._
 import play.api.libs.ws._
@@ -47,7 +50,7 @@ import play.api.libs.ws._
 val wsclient = ning.NingWSClient()
 
 // Setup the Rest Client
-implicit val connection = Neo4jREST()(wsclient)
+implicit val connection: Neo4jConnection = Neo4jREST()(wsclient)
 
 // Provide an ExecutionContext
 implicit val ec = scala.concurrent.ExecutionContext.global
@@ -56,3 +59,4 @@ implicit val ec = scala.concurrent.ExecutionContext.global
 cleanupCommands in console := """
 wsclient.close()
 """
+ */

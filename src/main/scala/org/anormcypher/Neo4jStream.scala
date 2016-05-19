@@ -116,12 +116,14 @@ object Neo4jStream {
     ch <- peekOne
     result <- ch match {
       case None => Done[CharString, Seq[Any]](Seq.empty, Input.EOF)
-      case Some('[') => for {
-        jsarr <- jsSimpleArray
-        jsres = Json.fromJson[Seq[Any]](jsarr)(Neo4jREST.seqReads)
+      case Some('{') => for {
+        jsobj <- jsSimpleObject
+        jsres = Json.fromJson[Seq[Any]](jsobj.value("row"))(Neo4jREST.seqReads)
+        // TODO Neo4j 3.0 returns additional meta data structure, may need to capture
       } yield jsres.get
       case Some(',') => drop(1).flatMap(_ => row)
-      case in@_ => drop(1).flatMap(_ => row)// TODO: parsing error
+      case in@_ =>
+        dropWhile(_ => true).flatMap(_ => row) // consume the rest of the stream
     }
   } yield result
 
