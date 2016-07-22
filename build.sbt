@@ -15,6 +15,7 @@ scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-unchecked", "-feat
 resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
 resolvers += "Bintray" at "http://dl.bintray.com/typesafe/maven-releases/com/typesafe/play/extras/"
+resolvers += Resolver.bintrayRepo("kai-chen", "maven")
 
 parallelExecution in Test := false
 
@@ -24,6 +25,7 @@ val playVersion = "2.4.3"
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "com.sorrentocorp" %% "scala-macros" % "0.1",
   "com.typesafe.play" %% "play-json" % playVersion,
   "com.typesafe.play" %% "play-ws" % playVersion,
   "com.typesafe.play" %% "play-iteratees" % playVersion,
