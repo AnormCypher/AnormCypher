@@ -1,6 +1,5 @@
 package org.anormcypher
 
-import com.sorrentocorp.macros.Macros
 import play.api.libs.iteratee.{Enumerator, Iteratee}
 import scala.concurrent.{Future, ExecutionContext}
 import scala.util.control.ControlThrowable
@@ -78,7 +77,7 @@ object Neo4jTransaction {
     for {
       tx <- conn.beginTx
     } yield try {
-      val r = Macros.sequentially(code)(tx)
+      val r = code(tx)
       tx.commit
       r
     } catch {
