@@ -115,7 +115,7 @@ object Neo4jREST {
       case (k, JsArray(ss)) if (ss.forall(_.isInstanceOf[JsString])) =>
         k -> ss.asInstanceOf[Seq[JsString]].map(_.value)
       case (k, JsObject(o)) => k -> read(o.toSeq)
-      case (k, JsArray(ss)) if(ss.forall(_.isInstanceOf[JsObject]))=>
+      case (k, JsArray(ss)) if (ss.forall(_.isInstanceOf[JsObject])) =>
         k -> ss.asInstanceOf[Seq[JsObject]].map(o => read(o.value.toSeq))
       case _ => throw new RuntimeException(s"unsupported type")
     }).toMap
