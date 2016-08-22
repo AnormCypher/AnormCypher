@@ -62,4 +62,14 @@ create (n1)-[r:hasChildren]->(n2)""")()
     val created = Cypher(s"match (n:${Tag}) return n")()
     created shouldBe 'Empty
   }
+
+  it should "rollback the transaction if we use a rollback transaction" in {
+    val res = Neo4jRollbackTransaction.withTx { implicit tx =>
+      Cypher(s"""create (:${Tag} {msg: "should disappear"})""")
+    }
+    Await.ready(res, 3.seconds)
+    // check that the node did not get created
+    val created = Cypher(s"match (n:${Tag}) return n")()
+    created shouldBe 'Empty
+  }
 }
