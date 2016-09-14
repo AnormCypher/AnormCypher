@@ -1,18 +1,19 @@
 package org.anormcypher
 
-import play.api.libs.iteratee.{Enumerator, Iteratee}
+import akka.NotUsed
+import akka.stream._, scaladsl._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.util.control.ControlThrowable
 
 /** Neo4j Connection API */
 trait Neo4jConnection {
   @deprecated("0.9", "use execute instead")
-  def sendQuery(cypherStatement: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+  def sendQuery(cypherStatement: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]] =
     execute(cypherStatement)
 
   /** Asynchronous, non-streaming query */
-  def execute(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]] =
-      streamAutocommit(stmt) |>>> Iteratee.getChunks[CypherResultRow]
+  def execute(stmt: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]] =
+      streamAutocommit(stmt).runWith(Sink.fold(Seq.empty[CypherResultRow])((seq, r) => seq :+ r))
 
   /**
    * Asynchronous, streaming (i.e. reactive) query.
@@ -22,7 +23,7 @@ trait Neo4jConnection {
    * immediately commited, regardless of the value for `autocommit`.
    * It will also never participate in any existing transaction.
    */
-  def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
+  def streamAutocommit(stmt: CypherStatement)(implicit mat: Materializer): Source[CypherResultRow, NotUsed]
 
   private[anormcypher] def beginTx(implicit ec: ExecutionContext): Future[Neo4jTransaction]
 
@@ -40,7 +41,7 @@ trait Neo4jConnection {
 trait Neo4jTransaction {
   def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]]
 
-  def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext): Enumerator[CypherResultRow]
+  def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext): Source[CypherResultRow, NotUsed]
 
   def txId: String
   // Both commit and rollback are blocking operations because a callback api is not as clear
@@ -60,9 +61,9 @@ object Neo4jTransaction {
    */
   implicit def autocommitNeo4jTransaction(implicit conn: Neo4jConnection): Neo4jTransaction =
     new Neo4jTransaction {
-      override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+      override def cypher(stmt: CypherStatement)(implicit mat: Materializer) =
         conn.execute(stmt)
-      override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+      override def cypherStream(stmt: CypherStatement)(implicit mat: Materializer) =
         conn.streamAutocommit(stmt)
 
       // return a string instead of throwing as it's a legitimate use

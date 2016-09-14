@@ -1,7 +1,7 @@
 package org.anormcypher
 
+import akka.stream._, scaladsl._
 import play.api.http.HttpVerbs.{DELETE, POST}
-import play.api.libs.iteratee._
 import play.api.libs.json._, Json._
 import play.api.libs.ws._
 import scala.concurrent._, duration._
@@ -35,13 +35,13 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     if (username.isEmpty) req else req.withAuth(username, password, WSAuthScheme.BASIC)
   }
 
-  override def streamAutocommit(stmt: CypherStatement)(implicit ec: ExecutionContext) = {
+  override def streamAutocommit(stmt: CypherStatement)(implicit mat: Materializer) = {
     val req = request(AutocommitEndpoint).withMethod(POST)
-    val source = req.withBody(Json.toJson(wrapCypher(stmt))).stream()
+    val source: Future[StreamedResponse] = req.withBody[JsValue](Json.toJson(wrapCypher(stmt))).stream()
 
-    Enumerator.flatten(source map { case (resp, body) =>
-        Neo4jStream.parse(body)
-    })
+    // Enumerator.flatten(source map { case (resp, body) =>
+    //     Neo4jStream.parse(body)
+    // })
   }
 
   private[anormcypher] override def executeInTx(stmt: CypherStatement)(
