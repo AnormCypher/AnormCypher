@@ -4,9 +4,8 @@ import akka.stream._, scaladsl._, stage._
 import akka.util.ByteString
 import com.sorrentocorp.akka.stream._
 import play.api.libs.json._
-
-import scala.util._, control.NonFatal
-
+import scala.collection.mutable
+>
 class CypherResultRowFraming extends GraphStage[FlowShape[Neo4jRespToken, CypherResultRow]] {
   override protected def initialAttributes: Attributes = Attributes.name("CypherResultRowFraming.scanner")
 
@@ -16,20 +15,36 @@ class CypherResultRowFraming extends GraphStage[FlowShape[Neo4jRespToken, Cypher
 
   override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with InHandler with OutHandler {
     setHandlers(in, out, this)
+    import Neo4jREST._
+
+    var metadata: MetaData = null
+    var noresult = false
+    val rowbuf: mutable.Queue[Neo4jResultSet] = mutable.Queue()
+
+    def nextRow: CypherResultRow = new CypherResultRow(metadata, rowbuf.dequeue.row)
 
     override def onPush(): Unit = {
       val curr = grab(in)
       curr match {
         case EmptyResult =>
+          noresult = true
+          // continue on to see if we get any errors
 
         case ResultColumn(meta) =>
-          meta.utf8String
+          if (metadata != null)
+            throw new IllegalStateException(s"Got another metadata ${meta.utf8String}, received ${metadata}")
+          else
+            metadata = MetaData(
+              for (colname <- Json.parse(meta.utf8String).as[List[String]])
+              yield (MetaDataItem(colname, false, "String")))
 
         case DataRow(row) =>
-          row.utf8String
+          rowbuf.enqueue(Json.parse(row.utf8String).as[Neo4jResultSet])
 
         case ErrorObj(errors) =>
-          errors.utf8String
+          val err = Json.parse(errors.utf8String).as[Seq[JsObject]]
+          if (!err.isEmpty)
+            throw new RuntimeException(s"""Neo4j server error: message is ${err(0).value("message")}""")
       }
 
       tryPopBuffer()
@@ -40,19 +55,19 @@ class CypherResultRowFraming extends GraphStage[FlowShape[Neo4jRespToken, Cypher
     }
 
     override def onUpstreamFinish(): Unit = {
-      lexer.poll match {
-        case Some(token) => emit(out, token)
-        case None => completeStage()
-      }
+      if (noresult || rowbuf.isEmpty)
+        completeStage()
+      else
+        emit(out, nextRow)
     }
 
     def tryPopBuffer(): Unit = {
-      try lexer.poll match {
-        case Some(token) => emit(out, token)
-        case None => if (isClosed(in)) completeStage() else pull(in)
-      } catch {
-        case NonFatal(ex) => failStage(ex)
-      }
+      if (!rowbuf.isEmpty)
+        emit(out, nextRow)
+      else if (isClosed(in))
+        completeStage()
+      else
+        pull(in)
     }
   }
 }

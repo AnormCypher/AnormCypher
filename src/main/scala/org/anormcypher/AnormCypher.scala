@@ -345,7 +345,7 @@ trait CypherRow {
 
 case class MockRow(metaData: MetaData, data: List[Any]) extends CypherRow
 
-case class CypherResultRow(metaData: MetaData, data: List[Any]) extends CypherRow {
+case class CypherResultRow(metaData: MetaData, data: Seq[Any]) extends CypherRow {
   override def toString() = s"CypherResultRow(${metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ")})"
 }
 

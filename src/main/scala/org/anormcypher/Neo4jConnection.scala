@@ -13,7 +13,9 @@ trait Neo4jConnection {
 
   /** Asynchronous, non-streaming query */
   def execute(stmt: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]] =
-      streamAutocommit(stmt).runWith(Sink.fold(Seq.empty[CypherResultRow])((seq, r) => seq :+ r))
+    for {
+      src <- streamAutocommit(stmt)
+    } yield src.runWith(Sink.fold(Seq.empty[CypherResultRow])((seq, r) => seq :+ r))
 
   /**
    * Asynchronous, streaming (i.e. reactive) query.
@@ -23,7 +25,7 @@ trait Neo4jConnection {
    * immediately commited, regardless of the value for `autocommit`.
    * It will also never participate in any existing transaction.
    */
-  def streamAutocommit(stmt: CypherStatement)(implicit mat: Materializer): Source[CypherResultRow, NotUsed]
+  def streamAutocommit[T](stmt: CypherStatement)(implicit mat: Materializer): Future[Source[CypherResultRow, T]]
 
   private[anormcypher] def beginTx(implicit ec: ExecutionContext): Future[Neo4jTransaction]
 

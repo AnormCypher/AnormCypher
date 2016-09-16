@@ -1,5 +1,6 @@
 package org.anormcypher
 
+import akka.NotUsed
 import akka.stream._, scaladsl._
 import play.api.http.HttpVerbs.{DELETE, POST}
 import play.api.libs.json._, Json._
@@ -39,9 +40,10 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     val req = request(AutocommitEndpoint).withMethod(POST)
     val source: Future[StreamedResponse] = req.withBody[JsValue](Json.toJson(wrapCypher(stmt))).stream()
 
-    // Enumerator.flatten(source map { case (resp, body) =>
-    //     Neo4jStream.parse(body)
-    // })
+    implicit val ec = mat.executionContext
+    for {
+      resp <- source
+    } yield Neo4jStream.parse[NotUsed](resp.body)
   }
 
   private[anormcypher] override def executeInTx(stmt: CypherStatement)(
