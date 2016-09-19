@@ -43,7 +43,7 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
     implicit val ec = mat.executionContext
     for {
       resp <- source
-    } yield Neo4jStream.parse[NotUsed](resp.body)
+    } yield Neo4jStream.parse(resp.body)
   }
 
   private[anormcypher] override def executeInTx(stmt: CypherStatement)(
@@ -84,9 +84,10 @@ class Neo4jREST(val wsclient: WSClient, val host: String, val port: Int,
 
   // TODO: configure timeout when waiting for server response
   case class Neo4jRestTransaction(override val txId: String) extends Neo4jTransaction {
-    override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) = executeInTx(stmt)(this, ec)
+    override def cypher(stmt: CypherStatement)(implicit mat: Materializer) =
+      executeInTx(stmt)(this, mat.executionContext)
 
-    override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+    override def cypherStream(stmt: CypherStatement)(implicit mat: Materializer) =
       nosup("Streaming is not supported in open transactions")
 
     override def commit(implicit ec: ExecutionContext) =

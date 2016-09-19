@@ -1,6 +1,5 @@
 package org.anormcypher
 
-import akka.NotUsed
 import akka.stream._, scaladsl._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.util.control.ControlThrowable
@@ -12,10 +11,10 @@ trait Neo4jConnection {
     execute(cypherStatement)
 
   /** Asynchronous, non-streaming query */
-  def execute(stmt: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]] =
-    for {
-      src <- streamAutocommit(stmt)
-    } yield src.runWith(Sink.fold(Seq.empty[CypherResultRow])((seq, r) => seq :+ r))
+  def execute(stmt: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]] = {
+    implicit val ec: ExecutionContext = mat.executionContext
+    streamAutocommit(stmt).flatMap(_.runWith(Sink.fold(Seq.empty[CypherResultRow])((seq, r) => seq :+ r)))
+  }
 
   /**
    * Asynchronous, streaming (i.e. reactive) query.
@@ -25,7 +24,7 @@ trait Neo4jConnection {
    * immediately commited, regardless of the value for `autocommit`.
    * It will also never participate in any existing transaction.
    */
-  def streamAutocommit[T](stmt: CypherStatement)(implicit mat: Materializer): Future[Source[CypherResultRow, T]]
+  def streamAutocommit(stmt: CypherStatement)(implicit mat: Materializer): Future[Source[CypherResultRow, _]]
 
   private[anormcypher] def beginTx(implicit ec: ExecutionContext): Future[Neo4jTransaction]
 
@@ -41,9 +40,9 @@ trait Neo4jConnection {
 }
 
 trait Neo4jTransaction {
-  def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext): Future[Seq[CypherResultRow]]
+  def cypher(stmt: CypherStatement)(implicit mat: Materializer): Future[Seq[CypherResultRow]]
 
-  def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext): Source[CypherResultRow, NotUsed]
+  def cypherStream(stmt: CypherStatement)(implicit mat: Materializer): Future[Source[CypherResultRow, _]]
 
   def txId: String
   // Both commit and rollback are blocking operations because a callback api is not as clear

@@ -1,13 +1,17 @@
 package org.anormcypher
 
+import akka.actor._
+import akka.stream._
 import org.scalatest._
-import play.api.libs.ws._, ning._
-import scala.concurrent._
+import play.api.libs.ws._
 
 trait BaseAnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val wsclient = NingWSClient()
+  implicit val system = ActorSystem("anormcypher-test")
+  implicit val materializer = ActorMaterializer()
+  implicit val ec = materializer.executionContext
+
+  val wsclient = ahc.AhcWSClient()
   implicit val neo4jrest = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))(wsclient)
-  implicit val ec = ExecutionContext.global
 
   val Tag = "anormcyphertest"
 
@@ -17,6 +21,8 @@ trait BaseAnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach
 
   override def afterAll = {
     wsclient.close()
+    materializer.shutdown()
+    system.terminate()
   }
 }
 

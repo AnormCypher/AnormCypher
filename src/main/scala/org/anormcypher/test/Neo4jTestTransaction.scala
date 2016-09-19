@@ -1,5 +1,6 @@
 package org.anormcypher
 
+import akka.stream._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.util.control.ControlThrowable
 
@@ -13,9 +14,9 @@ object Neo4jTestTransaction {
     */
   implicit def autocommitNeo4jTransaction(implicit conn: Neo4jConnection): Neo4jTransaction =
   new Neo4jTransaction {
-    override def cypher(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+    override def cypher(stmt: CypherStatement)(implicit mat: Materializer) =
       conn.execute(stmt)
-    override def cypherStream(stmt: CypherStatement)(implicit ec: ExecutionContext) =
+    override def cypherStream(stmt: CypherStatement)(implicit mat: Materializer) =
       throw new NotImplementedError("You can not run an autocommit tx from a rollback tx")
 
     // return a string instead of throwing as it's a legitimate use

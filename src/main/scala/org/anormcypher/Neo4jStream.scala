@@ -5,7 +5,7 @@ import akka.util.ByteString
 import com.sorrentocorp.akka.stream._
 import play.api.libs.json._
 import scala.collection.mutable
->
+
 class CypherResultRowFraming extends GraphStage[FlowShape[Neo4jRespToken, CypherResultRow]] {
   override protected def initialAttributes: Attributes = Attributes.name("CypherResultRowFraming.scanner")
 

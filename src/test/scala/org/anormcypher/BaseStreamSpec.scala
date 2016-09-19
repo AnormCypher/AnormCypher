@@ -1,12 +1,23 @@
 package org.anormcypher
 
+import akka.NotUsed
+import akka.actor._
+import akka.stream._, scaladsl._
+import akka.util.ByteString
 import org.scalatest._, concurrent._, time._
 
-import play.api.libs.iteratee._
-import play.extras.iteratees._
-import scala.concurrent.Future
+trait BaseStreamSpec extends FlatSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
+  implicit val system = ActorSystem("anormcypher-stream-test")
+  implicit val materializer = ActorMaterializer()
+  implicit val ec = materializer.executionContext
 
-trait BaseStreamSpec extends FlatSpec with Matchers with ScalaFutures {
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(3, Seconds))
+
+  override def afterAll = {
+    materializer.shutdown()
+    system.terminate()
+  }
+
   val rand = scala.util.Random
   def nonZero(upTo: Int) = rand.nextInt(upTo) match {
     case 0 => 1
@@ -23,26 +34,9 @@ trait BaseStreamSpec extends FlatSpec with Matchers with ScalaFutures {
     split1(Vector[String](), s)
   }
 
-  def chunking(whole: String): Enumerator[Array[Byte]] =
-    (randomSplit(whole).map(s => Enumerator(s.getBytes)) foldRight Enumerator.empty[Array[Byte]]) {
-      (chunk, ret) => chunk andThen ret
-    }
-
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(3, Seconds))
-  implicit val ec = scala.concurrent.ExecutionContext.global
-
-  def afterMatchString(value: String): Iteratee[CharString, List[String]] =
-    for {
-      _ <- Neo4jStream.matchString(value)
-      r <- Iteratee.getChunks[CharString]
-    } yield r.map(_.mkString)
-
-  def leftover(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): String =
-    run(src, sink).futureValue.mkString
-
-  def run(src: Enumerator[String], sink: Iteratee[CharString, List[String]]): Future[List[String]] =
-    src.map(_.getBytes) &> Encoding.decode() |>>> sink
+  def chunking(whole: String): Source[ByteString, NotUsed] =
+    Source.fromIterator(() => randomSplit(whole).map(ByteString(_)).iterator)
 
   def parse (resp: String): Seq[CypherResultRow] =
-    (Neo4jStream.parse(chunking(resp)) |>>> Iteratee.getChunks[CypherResultRow]).futureValue
+    Neo4jStream.parse(chunking(resp)).runWith(Sink.seq).futureValue
 }

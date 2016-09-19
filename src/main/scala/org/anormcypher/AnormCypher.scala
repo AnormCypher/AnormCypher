@@ -1,5 +1,6 @@
 package org.anormcypher
 
+import akka.stream.Materializer
 import MayErr._
 import scala.concurrent._, duration._
 import scala.reflect.ClassTag
@@ -292,7 +293,7 @@ object TupleFlattener extends PriorityNine {
 }
 
 object CypherRow {
-  def unapplySeq(row: CypherRow): Option[List[Any]] = Some(row.asList)
+  def unapplySeq(row: CypherRow): Option[Seq[Any]] = Some(row.asList)
 }
 
 case class MetaDataItem(column: String, nullable: Boolean, clazz: String)
@@ -310,7 +311,7 @@ case class MetaData(ms: List[MetaDataItem]) {
 
 trait CypherRow {
 
-  protected[anormcypher] val data: List[Any]
+  protected[anormcypher] val data: Seq[Any]
   protected[anormcypher] val metaData: MetaData
 
   lazy val asList = data.zip(metaData.ms.map(_.nullable)).map(i => if (i._2) Option(i._1) else i._1)
@@ -351,15 +352,15 @@ case class CypherResultRow(metaData: MetaData, data: Seq[Any]) extends CypherRow
 
 case class CypherStatement(statement: String, parameters: Map[String, Any] = Map()) {
 
-  def apply()(implicit tx: Neo4jTransaction, ec: ExecutionContext): Seq[CypherResultRow] =
+  def apply()(implicit tx: Neo4jTransaction, mat: Materializer): Seq[CypherResultRow] =
     Await.result(async(), 30.seconds)
 
-  def async()(implicit tx: Neo4jTransaction, ec: ExecutionContext): Future[Seq[CypherResultRow]] =
+  def async()(implicit tx: Neo4jTransaction, mat: Materializer): Future[Seq[CypherResultRow]] =
     tx.cypher(this)
 
   def on(args: (String, Any)*) = this.copy(parameters = parameters ++ args)
 
-  def execute()(implicit tx: Neo4jTransaction, ec: ExecutionContext): Boolean = {
+  def execute()(implicit tx: Neo4jTransaction, mat: Materializer): Boolean = {
     var retVal = true
     try {
       // throws an exception on a query that doesn't succeed.
@@ -370,35 +371,42 @@ case class CypherStatement(statement: String, parameters: Map[String, Any] = Map
     retVal
   }
 
-  def as[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST, ec: ExecutionContext): T = {
+  def as[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST, mat: Materializer): T = {
     Cypher.as[T](parser, apply())
   }
 
-  def list[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Seq[A] = as(rowParser.*)
+  def list[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): Seq[A] = as(rowParser.*)
 
-  def single[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): A = as(CypherResultSetParser.single(rowParser))
+  def single[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): A = as(CypherResultSetParser.single(rowParser))
 
-  def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
+  def singleOpt[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): Option[A] = as(CypherResultSetParser.singleOpt(rowParser))
 
-  def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST, ec: ExecutionContext): T = Cypher.parse[T](parser, apply())
+  def parse[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST, mat: Materializer): T = Cypher.parse[T](parser, apply())
 
-  def executeAsync()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Boolean] = {
+  def executeAsync()(implicit connection: Neo4jREST, mat: Materializer): Future[Boolean] = {
+    implicit val ec: ExecutionContext = mat.executionContext
     val p = Promise[Boolean]()
     async().onComplete { x => p.success(x.isSuccess) }
     p.future
   }
 
-  def asAsync[T](parser: CypherResultSetParser[T])(implicit connection: Neo4jREST, ec: ExecutionContext): Future[T] = {
+  def asAsync[T](parser: CypherResultSetParser[T])(
+    implicit connection: Neo4jREST, mat: Materializer): Future[T] = {
+    implicit val ec: ExecutionContext = mat.executionContext
     Cypher.as[T](parser, async())
   }
 
-  def listAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Seq[A]] = asAsync(rowParser.*)
+  def listAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): Future[Seq[A]] = asAsync(rowParser.*)
 
-  def singleAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[A] = asAsync(CypherResultSetParser.single(rowParser))
+  def singleAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): Future[A] = asAsync(CypherResultSetParser.single(rowParser))
 
-  def singleOptAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[Option[A]] = asAsync(CypherResultSetParser.singleOpt(rowParser))
+  def singleOptAsync[A](rowParser: CypherRowParser[A])()(implicit connection: Neo4jREST, mat: Materializer): Future[Option[A]] = asAsync(CypherResultSetParser.singleOpt(rowParser))
 
-  def parseAsync[T](parser: CypherResultSetParser[T])()(implicit connection: Neo4jREST, ec: ExecutionContext): Future[T] = Cypher.parse[T](parser, async())
+  def parseAsync[T](parser: CypherResultSetParser[T])()(
+    implicit connection: Neo4jREST, mat: Materializer): Future[T] = {
+    implicit val ec: ExecutionContext = mat.executionContext
+    Cypher.parse[T](parser, async())
+  }
 }
 
 

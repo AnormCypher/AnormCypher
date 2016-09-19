@@ -1,38 +1,9 @@
 package org.anormcypher
 
-import play.api.libs.iteratee._
-import scala.concurrent.{Await, Future}
+import akka.stream._, scaladsl._
+import scala.concurrent.Await
 
 class Neo4jStreamTest extends BaseStreamSpec {
-  "Neo4jStream.matchString" should "be able to accept empty string to match" in {
-    val src = Enumerator("abc", "def", "g")
-    val sink = afterMatchString("")
-    leftover(src, sink) shouldBe "abcdefg"
-  }
-
-  it should "consume matched strings" in {
-    val src = Enumerator("abc", "def", "g")
-    val sink = afterMatchString("abc")
-    leftover(src, sink) shouldBe "defg"
-  }
-
-  it should "leave the correct remaineder of the input after a successful match" in {
-    val src = Enumerator("abc", "def", "g")
-    val sink = afterMatchString("a")
-    leftover(src, sink) shouldBe "bcdefg"
-  }
-
-  it should "signal unexpected EOF when running out of input before a successful match" in {
-    val res = run(Enumerator.empty[String], afterMatchString("ab"))
-    res.failed.futureValue.getMessage shouldBe "Premature end of input, asked to match 'ab', matched '', expecting 'ab'"
-  }
-
-  it should "be able to handle empty input while matching" in {
-    val src = Enumerator((1 to 10) map (_ => "") :_*) andThen Enumerator("abcdefg")
-    val sink = afterMatchString("abc")
-    leftover(src, sink) shouldBe "defg"
-  }
-
   "Neo4jStream" should "be able to adapt byte array stream to CypherResultRow" in {
     // TODO: use scalacheck to generate different types of neo4j rest responses
     val whole = """
@@ -59,7 +30,7 @@ class Neo4jStreamTest extends BaseStreamSpec {
 
   it should "propagate error from bad json format" in {
     val whole = """{property: "something"}"""
-    val f = Neo4jStream.parse(chunking(whole)) |>>> Iteratee.getChunks[CypherResultRow]
+    val f = Neo4jStream.parse(chunking(whole)).runWith(Sink.seq)
     Await.ready(f, patienceConfig.timeout)
     f.value.get shouldBe 'Failure
   }
@@ -72,7 +43,7 @@ class Neo4jStreamTest extends BaseStreamSpec {
   it should "extract the 'message' portion from an neo4j error response" in {
     val msg = "monkeys don't twiddle existential thumbs like the Prince of Denmark"
     val json = s"""{"results": [], "errors": [{"code": "Neo.ClientError.Statement.InvalidSyntax", "message": "$msg"}]}"""
-    val f = Neo4jStream.parse(chunking(json)) |>>> Iteratee.getChunks[CypherResultRow]
+    val f = Neo4jStream.parse(chunking(json)).runWith(Sink.seq)
     Await.ready(f, patienceConfig.timeout)
     val res = f.value.get
     res shouldBe 'Failure
