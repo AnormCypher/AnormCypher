@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "com.typesafe.play" %% "play-json" % playVersion,
   "com.typesafe.play" %% "play-ws" % playVersion,
-  "com.sorrentocorp" %% "streaming-json-parser" % "0.1.0",
+  "com.sorrentocorp" %% "streaming-json-parser" % "0.1.1-SNAPSHOT",
   "org.scala-lang.modules" %% "scala-async" % "0.9.2"
 )
 

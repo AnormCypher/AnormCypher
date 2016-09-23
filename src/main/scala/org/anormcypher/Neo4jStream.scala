@@ -42,9 +42,13 @@ class CypherResultRowFraming extends GraphStage[FlowShape[Neo4jRespToken, Cypher
           rowbuf.enqueue(Json.parse(row.utf8String).as[Neo4jResultSet])
 
         case ErrorObj(errors) =>
-          val err = Json.parse(errors.utf8String).as[Seq[JsObject]]
-          if (!err.isEmpty)
-            throw new RuntimeException(s"""Neo4j server error: message is ${err(0).value("message")}""")
+          if (errors.size > 0) {
+            val err = Json.parse(errors.utf8String).as[Seq[JsObject]]
+            if (!err.isEmpty)
+              throw new RuntimeException(s"""Neo4j server error: message is ${err(0).value("message")}""")
+          }
+
+        case NoError =>
       }
 
       tryPopBuffer()
