@@ -31,9 +31,9 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-The latest release is 0.9.0.  Version 0.9.0 depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+The latest release is 0.9.1.  Version 0.9.x depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
 
-AnormCypher does not support transaction before 0.9.  The last release without transaction support is 0.8.1.
+AnormCypher did not support transaction before 0.9.  The last release without transaction support is 0.8.1.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -42,6 +42,14 @@ If you want to use scala 2.10, you need to use version 0.4.x (latest is 0.4.4)
 If you want to use scala 2.9, you need to use version 0.3.x (latest is 0.3.1).
 
 ## SBT Console Demo
+
+Install neo4j on localhost.  For neo4j servers after 2.3, disable authentication by editing the following line in `conf/neo4j-server.properties` before running `neo4j start`
+
+```
+dbms.security.auth_enabled=false
+```
+
+If you would like to connect to a neo4j instance on another server, or use authentication, simply set the appropriate parameters (host, port, username, and password, etc) in the Neo4jREST factory method in the following example.
 
 Clone the AnormCypher repository from github, and run `sbt test:console`
 
@@ -56,7 +64,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.9.0"
+  "org.anormcypher" %% "anormcypher" % "0.9.1"
 )
 ```
 
@@ -528,6 +536,7 @@ $ spokenLanguages("FRA")
 * [@mvallerie](https://github.com/mvallerie) on github
 * Denis Rosca: [@denisrosca](https://github.com/denisrosca) on github
 * Darren Gibson: [@zarthross](https://github.com/zarthross) on github
+* Kai Chen: [@Kai-Chen](https://github.com/kai-chen) on github
 
 ## Thanks
 * The Play Framework team for providing the Anorm library, the basis for this library. (and now the play-json module)

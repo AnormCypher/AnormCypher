@@ -77,7 +77,6 @@ object Neo4jTransaction {
     for {
       tx <- conn.beginTx
     } yield try {
-      // TODO: deal with code that returns Future
       val r = code(tx)
       tx.commit
       r
