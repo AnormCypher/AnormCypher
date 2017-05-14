@@ -31,9 +31,13 @@ Integration tests currently run against neo4j-community-2.1.3.
 
 [![Build Status](https://travis-ci.org/AnormCypher/AnormCypher.png?branch=master)](https://travis-ci.org/AnormCypher/AnormCypher?branch=master)
 
-The latest release is 0.9.1.  Version 0.9.x depends on the play-json and play-ws libraries from Play 2.4.3.  If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
+The latest release is 0.10.0.
+Version 0.10.x depends on play-json and play-ws libraries from Play 2.5.3.
+For Play 2.4.x, please use version 0.9.1.
+If you need to use AnormCypher in Play 2.3.x, please use version 0.7.0.
 
-AnormCypher did not support transaction before 0.9.  The last release without transaction support is 0.8.1.
+AnormCypher did not support transaction before 0.9.
+The last release without transaction support is 0.8.1.
 
 As of version 0.5, AnormCypher uses play-json and Scala 2.11. 
 
@@ -55,7 +59,7 @@ Clone the AnormCypher repository from github, and run `sbt test:console`
 
 Alternatively, you can create a build.sbt file with the following:
 ``` Scala
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.8"
 
 resolvers ++= Seq(
   "anormcypher" at "http://repo.anormcypher.org/",
@@ -64,7 +68,7 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.anormcypher" %% "anormcypher" % "0.9.1"
+  "org.anormcypher" %% "anormcypher" % "0.10.0"
 )
 ```
 
