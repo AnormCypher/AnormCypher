@@ -11,7 +11,8 @@ import scala.concurrent._
 trait BaseAnormCypherSpec extends FlatSpec with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
   implicit val system = ActorSystem("anormcypher")
   implicit val materializer = ActorMaterializer()
-  val wsclient = NingWSClient()
+
+  val wsclient = ahc.AhcWSClient()
   implicit val neo4jrest = Neo4jREST(scala.util.Properties.envOrElse("NEO4J_SERVER", "localhost"))(wsclient, materializer)
   implicit val ec = ExecutionContext.global
 
