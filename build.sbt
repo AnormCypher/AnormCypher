@@ -20,14 +20,14 @@ parallelExecution in Test := false
 
 logBuffered in Test := false
 
-val playVersion = "2.4.3"
+val playVersion = "2.5.3"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
   "com.typesafe.play" %% "play-json" % playVersion,
   "com.typesafe.play" %% "play-ws" % playVersion,
   "com.typesafe.play" %% "play-iteratees" % playVersion,
-  "com.typesafe.play.extras" %% "iteratees-extras" % "1.5.0",
+  "com.typesafe.play.extras" %% "iteratees-extras" % "1.6.0",
   "com.sorrentocorp" %% "streaming-json-parser" % "0.1.0",
   "org.scala-lang.modules" %% "scala-async" % "0.9.2"
 )
